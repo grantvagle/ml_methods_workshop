@@ -1,0 +1,265 @@
+---
+title: "Model evaluation and cross validation"
+subtitle: "How we make sure our models don't overfit"
+author: "Grant Vagle, Jeremiah Shrovnal, Lynn Waterhouse"
+institute: 
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+# Overview of this section
+
+- Introduce the Classification and Regression Trees (CART) algorithm
+  
+  - Model training algorithm
+  
+  - Performance metrics
+
+- Show how to evaluate prediction performance via:
+
+  - Independent test sets
+  
+  - K-fold cross-validation
+  
+  - Spatial and temporal evaluations
+
+- How to work with unbalanced data, small data sets, etc.
+
+  - Which performance metric should be the focus?
+  
+  - Weight input rows
+  
+  - Synthetic Minority Oversampling TEchnique (SMOTE) for augmenting small datasets
+  
+- Hands-on coding example with data
+
+
+
+
+
+---
+class: inverse, center, middle
+
+
+
+# Classification and Regression Trees (CART)
+
+
+
+
+---
+
+# Classification and Regression Trees (CART)
+
+**INSERT OVERVIEW OF MODEL ALGORITHM**
+
+
+---
+
+# Model performance metrics - classification
+
+
+---
+
+# Model performance metrics - regression
+
+
+
+---
+class: inverse, center, middle
+
+
+
+
+# Model evaluation and cross-validation
+
+
+
+
+
+---
+
+# First, an example...
+
+**INSERT EXAMPLE** - Example of model (probably classification) that performs well on the training data, but poorly on new data
+
+--
+
+Is this a good model? Or a bad model? It depends how we evaluate it...
+
+
+---
+
+# You should *always*<sup>1</sup> evaluate your model with an **independent test set**
+
+
+The simplest option is to:
+
+1. holdout 20% of your dataset as the **test set**
+
+2. train your model on the 80% **training set**
+
+3. calculate performance metrics on the test set
+
+
+.footnote[
+  [1] Sometimes, sample size makes this impractical or requires alternatives for a specific application...we'll talk about those later.
+]
+
+
+
+---
+
+# K-fold cross-validation
+
+Another common way to evaluate a model is via k-fold cross validation.
+
+**INSERT GRAPHIC FOR EXPLANATION**
+
+If `k = 10`, you train a model using a randomized 90% of the data, then evaluate it on the remaining 10%. Repeat this for 10 "folds" of the data, then take the average<sup>*</sup> performance across the ten folds.
+
+This way, every row in the dataset is evaluated in one test set.
+
+Leave-one-out cross-validation is when `k = # of rows`, is very useful but sometimes too computationally heavy, since you have to train k models.
+
+
+
+.footnote[
+  [*] Summarizing a performance across folds is typically done using the arithmetic mean, but could be summarized in a number of relevant ways.
+]
+
+
+
+---
+
+# Spatial and temporal considerations
+
+It's a good idea to structure your model evaluation depending on the prediction problem you're most interested in...
+
+**INSERT EXAMPLE AND DESCRIPTION - use AIS proj**
+
+
+
+---
+
+
+
+
+
+
+
+
+
+
+---
+
+# Some thoughts on what constitutes a "final model"
+
+--
+If you're interested in making predictions outside of the available dataset,
+
+--
+
+you probably want to make final predictions using all of the available data.
+
+--
+
+But, using all of the available data doesn't leave any available for model evaluation.
+
+--
+
+**One way that works**:
+
+--
+
+- build a model using the training set
+--
+
+- evaluate the model using the test set
+--
+
+- re-build the model (using the same parameters) using the full dataset, call it the "full" or "final" model
+--
+
+- then make predictions using the "full" or "final" model
+
+
+
+
+---
+
+
+---
+class: inverse, center, middle
+
+
+
+
+
+
+# How much data do I need?
+
+
+
+
+
+
+
+---
+
+# INSERT SLIDES related to:
+
+Which performance metric makes sense?
+
+
+Class balance for classification
+
+- Weighting input rows
+
+- SMOTE
+
+
+
+--- 
+
+
+
+---
+class: inverse, center, middle
+
+
+
+
+
+
+# Hands-on coding example
+
+
+
+
+
+
+---
+
+# INSERT DETAILS ON WHERE TO FIND, HOW LONG, ETC.
+
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
