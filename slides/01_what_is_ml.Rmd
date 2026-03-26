@@ -1,7 +1,7 @@
 ---
 title: "What is machine learning?"
 subtitle: "And why is it useful (for science)?"
-author: "**Grant Vagle**, Jeremiah Shrovnal, Lynn Waterhouse"
+author: "Grant Vagle, Jeremiah Shrovnal, Lynn Waterhouse"
 institute: 
 output:
   xaringan::moon_reader:
