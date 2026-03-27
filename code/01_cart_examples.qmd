@@ -1,0 +1,297 @@
+---
+title: "01 - CART code examples"
+format: html
+editor: visual
+number-sections: true
+number-depth: 3
+toc: true
+---
+
+```{r}
+#| echo: false
+#| 
+# knitr::read_chunk("./01_cart_examples.R")
+```
+
+```{r}
+#| label: load_packages
+#| echo: true
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(rpart)
+library(Metrics)
+```
+
+
+# Example 1 - Penguins!
+
+**INSERT** overview/outline of the examples in this section, and a penguin image obviously
+
+
+
+## Read in penguins data
+
+```{r}
+#| label: read_penguins
+#| echo: true
+
+penguins <- penguins |>
+  # remove NAs to avoid downstream issues
+  tidyr::drop_na()
+head(penguins)
+str(penguins)
+```
+
+### First, we'll split the training and test sets
+
+```{r}
+#| label: split_train_test
+#| echo: true
+
+nrow_train <- ceiling(0.8 * nrow(penguins)) # ceiling used to make it an integer
+
+set.seed(424) # set a seed for consistent splits if re-run
+
+penguins_train <- penguins |>
+  # make row number a column to use as id
+  dplyr::mutate(rownum = dplyr::row_number()) |>
+  # slice random sample
+  dplyr::slice_sample(n = nrow_train)
+
+str(penguins_train)
+  
+
+penguins_test <- penguins |>
+  # make row number a column to use as id
+  dplyr::mutate(rownum = dplyr::row_number()) |>
+  # test set is what is left, ids not found in train
+  dplyr::filter(!rownum %in% penguins_train$rownum)
+
+str(penguins_test)
+```
+
+## CART model - regression example
+
+For this first example model, let's try to predict body mass using flipper length and bill depth.
+
+$$ body\_mass \sim flipper\_len + bill\_dep $$
+
+For Classification and Regression Trees, we'll use the `rpart` package and the `rpart` function with the default parameters.
+
+```{r}
+#| label: build_mod_mass
+#| echo: true
+#| fig-width: 12
+#| fig-height: 7
+#| fig-align: left
+#| column: page-right
+
+mod_mass <- rpart(body_mass ~ flipper_len + bill_dep,
+                  data = penguins_train,
+                  method = "anova")
+
+# Visualize the tree
+plot(mod_mass)
+text(mod_mass, digits = 3)
+```
+
+To evaluate the model, we make predictions from the model for the rows in the test set, then visually assess the output and calculate performance metrics.
+
+```{r}
+#| label: predict_mod_mass
+#| echo: true
+#| fig-width: 8
+#| fig-height: 6
+#| fig-align: center
+
+# save predictions as new column in penguins_test
+penguins_test$predicted_mass <- predict(mod_mass, penguins_test)
+
+# plot to visually assess
+ggplot(data = penguins_test,
+       aes(x = body_mass, y = predicted_mass)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, lty = "dashed")
+```
+
+### Calculating the Root Mean Squared Error (RMSE)
+
+The root mean squared error (RMSE) tells us how close our predicted value is to our observed value, on average.
+
+RMSE retains the same units as the dependent variable, so it should be interpreted with that context.
+
+$$ RMSE = \sqrt{ \frac{\sum (observed - predicted)^2 }{n} } $$
+
+```{r}
+#| label: calc_mod_mass_metrics
+#| echo: true
+#| fig-width: 8
+#| fig-height: 6
+#| fig-align: center
+
+# root mean squared error manual calculation
+sqrt( sum( (penguins_test$body_mass - penguins_test$predicted_mass)^2 ) / nrow(penguins_test) )
+
+# or use the Metrics package
+rmse <- Metrics::rmse(actual = penguins_test$body_mass, 
+                      predicted = penguins_test$predicted_mass)
+rmse
+
+mean(penguins_test$body_mass)
+rmse / mean(penguins_test$body_mass)
+
+```
+
+### Comparing test set performance to training set performance
+
+Just to demonstrate the need for independent test sets, here we calculate the RMSE for model predictions on the training dataset.
+
+```{r}
+
+penguins_train$fitted_mass <- predict(mod_mass, penguins_train)
+
+Metrics::rmse(actual = penguins_train$body_mass, 
+              predicted = penguins_train$fitted_mass)
+
+
+```
+
+As expected, the model performs better on data were used to train it. If we relied solely on evaluation metrics calculated on the training data, we would be over-estimating the predictive performance of the model when predicted for new data.
+
+For other model algorithms, this becomes even more pronounced, so "proper" evaluation of model predictions is highly important and the details matter, but "proper" often changes meaning depending on the modeling context.
+
+## CART model - classification example
+
+For this second example, let's try to predict penguin sex using flipper length and bill depth.
+
+$$ sex \sim flipper\_len + bill\_dep $$
+
+```{r}
+#| label: build_mod_sex
+#| echo: true
+#| fig-width: 8
+#| fig-height: 8
+#| fig-align: center
+
+mod_sex <- rpart(sex ~ flipper_len + bill_dep,
+                 data = penguins_train,
+                 method = "class")
+
+# Visualize the tree
+plot(mod_sex)
+text(mod_sex, digits = 3)
+```
+
+Again, we'll predict the model. But `rpart` provides predictions as probabilities for each class of the dependent variable, so we have some data manipulation to do.
+
+```{r}
+#| label: predict_mod_sex
+#| echo: true
+#| fig-width: 8
+#| fig-height: 6
+#| fig-align: center
+
+# predictions come as probabilities of each class
+predict(mod_sex, penguins_test) |>
+  head()
+
+# save predictions as new column in penguins_test
+penguins_test$predicted_sex <- 
+  # reduce predicted probabilities to just the predicted sex
+  predict(mod_sex, penguins_test) |>
+  as.data.frame() |>
+  dplyr::mutate(predicted_sex = ifelse(female > male, "female", "male")) |>
+  dplyr::pull(predicted_sex)
+
+```
+
+Then we'll calculate the **confusion matrix**, which tells us how "confused" our model is. It's a table that shows the observed and predicted sex and the number of rows that get correctly/incorrectly predicted.
+
+```{r}
+#| label: confmat_mod_sex
+
+# calculate the confusion matrix, manually
+penguins_test |>
+  dplyr::group_by(sex, predicted_sex) |>
+  dplyr::summarize(count = dplyr::n(), .groups = "drop") |>
+  tidyr::pivot_wider(id_cols = sex, names_from = predicted_sex,
+                     names_prefix = "predicted_", values_from = count)
+```
+
+### Calculating prediction accuracy
+
+Here, "accuracy" has a specific definition that means the proportion of rows classified correctly:
+
+$$ Accuracy = \frac{correct\_classifications}{total\_classifications} $$
+
+That means from our confusion matrix above, we can calculate accuracy by:
+
+$$ Accuracy = \frac{26 + 32}{26 + 4 + 4 + 32} = \frac{58}{66} \approx 0.87 $$
+
+Or, we can use the `Metrics` package:
+
+```{r}
+#| label: calc_accuracy
+
+Metrics::accuracy(actual = penguins_test$sex,
+                  predicted = penguins_test$predicted_sex)
+```
+
+Accuracy is a simple to understand measure of performance, but it is limited in several ways. For this example, we'll stop here, but we'll talk about other performance metrics for classification in later examples.
+
+### Another comparison of test set performance to training set performance
+
+```{r}
+
+penguins_train$fitted_sex <- # reduce predicted probabilities to just the predicted sex
+  predict(mod_sex, penguins_train) |>
+  as.data.frame() |>
+  dplyr::mutate(fitted_sex = ifelse(female > male, "female", "male")) |>
+  dplyr::pull(fitted_sex)
+
+
+Metrics::accuracy(actual = penguins_train$sex, 
+                  predicted = penguins_train$fitted_sex)
+
+
+```
+
+This time, the performance was actually worse for the training set than for the test set. This can happen, but is less likely than the opposite.
+
+But it also shows that relying on just one test set can be limiting. Next we'll show a few more examples of how to evaluate models using other cross-validation methods.
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Example 2 - ?
+
+**INSERT** a second example - purpose is to show how to handle class imbalance and do k-fold cross validation, bonus if we can do k-fold and a temporal cross-validation or some other structured eval...ideally keep it short and simple coding wise
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
