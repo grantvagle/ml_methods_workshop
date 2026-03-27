@@ -63,12 +63,40 @@ class: inverse, center, middle
 
 # Model performance metrics - classification
 
+**EDIT TO MAKE FLOW**
+
+- [link to accuracy metrics](https://developers.google.com/machine-learning/crash-course/classification/accuracy-precision-recall)
+- [link to ROC and AUC](https://developers.google.com/machine-learning/crash-course/classification/roc-and-auc)
+
+
+
+
+
 
 ---
 
 # Model performance metrics - regression
 
+**INSERT** Figure that shows observed vs predicted with some variability, to kick off the slide of how we measure the accuracy of the predictions.
 
+Most often, folks use Root Mean Squared Error (RMSE) in machine learning applications.
+
+--
+
+$$ RMSE = \sqrt{ \frac{\sum (observed - predicted)^2 }{n} } $$
+--
+
+
+It's related to $R^2$: $$ R^2 = 1 - \frac{RMSE^2}{Var(y)}$$
+
+--
+
+Typically, $R^2$ is calculated on **training data**, and $RMSE$ is calculated on a **test set**.
+
+.footnote[
+  [*] [stack exchange discussion on RMSE and R-squared](https://datascience.stackexchange.com/questions/100605/rmse-vs-r-squared)
+  [**] [link to article with many other evaluation metrics](https://towardsai.net/p/artificial-intelligence/the-essential-guide-to-ml-evaluation-metrics-for-regression)
+]
 
 ---
 class: inverse, center, middle
