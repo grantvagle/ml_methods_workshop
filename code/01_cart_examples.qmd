@@ -45,6 +45,8 @@ str(penguins)
 
 ### First, we'll split the training and test sets
 
+We'll use a random 80% of rows for the training set, and the remaining 20% for the test set.
+
 ```{r}
 #| label: split_train_test
 #| echo: true
