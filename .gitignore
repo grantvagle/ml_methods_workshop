@@ -12,3 +12,9 @@ slides/libs/*
 code/*_files 
 
 code/*.html
+
+explo*
+
+README.html
+
+data/bike_sharing_demand/*
