@@ -23,12 +23,9 @@ library(rpart)
 library(Metrics)
 ```
 
-
 # Example 1 - Penguins!
 
 **INSERT** overview/outline of the examples in this section, and a penguin image obviously
-
-
 
 ## Read in penguins data
 
@@ -116,6 +113,9 @@ ggplot(data = penguins_test,
   geom_point() +
   geom_abline(slope = 1, intercept = 0, lty = "dashed")
 ```
+
+Notice that the `predicted_mass` values are only the ones on the bottom of the tree above, with just 6 unique values. For a simple regression tree like this one, this can limit the resolution of the predictions, but for more complicated trees (or when we aggregate multiple trees) that doesn't typically remain an issue.
+
 
 ### Calculating the Root Mean Squared Error (RMSE)
 
@@ -263,37 +263,6 @@ This time, the performance was actually worse for the training set than for the 
 
 But it also shows that relying on just one test set can be limiting. Next we'll show a few more examples of how to evaluate models using other cross-validation methods.
 
-
-
-
-
-
-
-
-
-
-
-
-
 # Example 2 - ?
 
 **INSERT** a second example - purpose is to show how to handle class imbalance and do k-fold cross validation, bonus if we can do k-fold and a temporal cross-validation or some other structured eval...ideally keep it short and simple coding wise
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
