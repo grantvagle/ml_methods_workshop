@@ -8,12 +8,6 @@ toc: true
 ---
 
 ```{r}
-#| echo: false
-#| 
-# knitr::read_chunk("./01_cart_examples.R")
-```
-
-```{r}
 #| label: load_packages
 #| echo: true
 #| message: false
@@ -22,6 +16,35 @@ library(ggplot2)
 library(rpart)
 library(Metrics)
 ```
+
+#### Before we start, a couple notes on some frequently used code that may be new to some of you...
+
+We use the pipe operator `|>` often in the code examples. Simply put, it brings the output of one line into the first argument of the next line. More details available [here](https://tidyverse.org/blog/2023/04/base-vs-magrittr-pipe/) and [here](https://www.datacamp.com/tutorial/pipe-r-tutorial).
+
+For example:
+
+```{r}
+#| label: pipe_explanation_1
+#| echo: true
+#| results: false
+
+c(3, 4, 5) |>
+  mean()
+
+```
+
+is the same as:
+
+```{r}
+#| label: pipe_explanation_2
+#| echo: true
+#| results: false
+
+mean(c(3, 4, 5))
+
+```
+
+Another possibly unfamiliar practice is the `::` notation. This allows a user to specify which package a function should come from. Packages still must be installed, but `library(package_name)` is unnecessary with the `::` notation. For example, if we use `dplyr::mutate()` it's the same as using `mutate()` with the `dplyr` package loaded. We still put the packages used in the code examples in the `library()` calls at the top of each file, but use the `::` notation throughout, especially for lesser-known functions (like `Metrics::accuracy()` to note which package the `accuracy()` function came from).
 
 # Example 1 - Penguins!
 
@@ -115,7 +138,6 @@ ggplot(data = penguins_test,
 ```
 
 Notice that the `predicted_mass` values are only the ones on the bottom of the tree above, with just 6 unique values. For a simple regression tree like this one, this can limit the resolution of the predictions, but for more complicated trees (or when we aggregate multiple trees) that doesn't typically remain an issue.
-
 
 ### Calculating the Root Mean Squared Error (RMSE)
 
