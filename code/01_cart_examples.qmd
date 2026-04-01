@@ -48,7 +48,9 @@ Another possibly unfamiliar practice is the `::` notation. This allows a user to
 
 # Example 1 - Penguins!
 
+![Artwork by @allison_horst](images/lter_penguins.png)
 **INSERT** overview/outline of the examples in this section, and a penguin image obviously
+
 
 ## Read in penguins data
 
@@ -98,6 +100,9 @@ str(penguins_test)
 For this first example model, let's try to predict body mass using flipper length and bill depth.
 
 $$ body\_mass \sim flipper\_len + bill\_dep $$
+
+![Artwork by @allison_hurst](images/culmen_depth.png){width=50% fig-align="left"}
+
 
 For Classification and Regression Trees, we'll use the `rpart` package and the `rpart` function with the default parameters.
 
@@ -288,3 +293,5 @@ But it also shows that relying on just one test set can be limiting. Next we'll 
 # Example 2 - ?
 
 **INSERT** a second example - purpose is to show how to handle class imbalance and do k-fold cross validation, bonus if we can do k-fold and a temporal cross-validation or some other structured eval...ideally keep it short and simple coding wise
+
+SIMULATE EXAMPLE - red fish in superior red lake of the woods, has good recruitment more often than bad recruitment, but short lived so bad recruitment still matters a lot...example to show smote balancing, etc.
