@@ -7,9 +7,45 @@ number-depth: 3
 toc: true
 ---
 
-# Overview
+# Coding implementations of boosted regression trees (BRTs)
+
+`gbm` package
+
+`dismo`'s `gbm.step` built-in k-fold cross-validation that tunes the number of trees based on the others and calculates some performance metrics for the folds
+
+Also found in `caret` and other packages, with different syntax, etc.
 
 
+
+# Building a BRT - bike sharing example
+
+Bike sharing data source
+
+Just do the 10-fold CV and use the performance metrics within
+
+Thinking question: How would you ideally evaluate this model to predict the future year's demand?
+
+
+
+## Basic model interpretation
+
+Variable importance and partial dependence plots from built-in's
+
+
+
+# Deeper model interpretation via SHAP values
+
+SHapley Additive exPlanation (SHAP) values definitions and short theory on how they get calculated from model post-hoc
+
+Overview of package options - `iml` and `fastshap`
+
+We'll use the `iml` package which has some funky syntax
+
+Make model "predictor", calculate shap values for one day, plot them
+
+Calculate shap values for all days, plot some possible summaries
+
+Point to resources
 
 
 
