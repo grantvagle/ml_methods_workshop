@@ -7,6 +7,15 @@ number-depth: 3
 toc: true
 ---
 
+```{r}
+library(dplyr)
+library(parallel)
+library(gbm)
+library(dismo)
+```
+
+
+
 # Coding implementations of boosted regression trees (BRTs)
 
 `gbm` package
@@ -19,9 +28,239 @@ Also found in `caret` and other packages, with different syntax, etc.
 
 # Building a BRT - bike sharing example
 
-Bike sharing data source
+For this example, we downloaded data from a Kaggle machine learning competition. The dataset contains data on daily bike sharing rental counts for 2011 and 2012 from the Capital Bikeshare system in Washington, D.C. Also included in the dataset are columns containing information on the seasonality (month, season), weather (temperature, precipitation), type of day (holiday, weekend, etc.). See the [dataset readme](../data/bike_share_readme.txt) for full column descriptions.
 
-Just do the 10-fold CV and use the performance metrics within
+Our task is to predict bike rental counts based on the season, weather, and type of day.
+
+```{r}
+#| label: read bike data
+
+bike_share_day <- read.csv("../data/bike_share_day.csv")
+str(bike_share_day)
+```
+
+Let's clean this up a little bit, so we don't have all of the extra columns in the way.
+
+```{r}
+#| label: clean bike data
+
+bike_df <- bike_share_day |>
+  # select just the desired columns and rename count
+  dplyr::select(instant, dteday, season, mnth,
+                holiday, weekday, workingday, weathersit,
+                temp, atemp, hum, windspeed, "count" = cnt) |>
+  
+  # translate season to words, make factors factors
+  dplyr::mutate(
+    season = as.factor(dplyr::case_when(
+      season == 1 ~ "Winter",
+      season == 2 ~ "Spring",
+      season == 3 ~ "Summer",
+      season == 4 ~ "Autumn"
+    )),
+    
+    weathersit = as.factor(weathersit),
+    
+    mnth = as.factor(mnth),
+    
+    weekday = as.factor(weekday),
+    
+    workingday = as.factor(workingday),
+    
+    holiday = as.factor(holiday)
+  )
+```
+
+
+## Model tuning
+
+With BRTs (or any boosted models), model tuning is especially important to avoid over-fitting. So we need to make sure we try multiple hyper-parameters to find a good model.
+
+Before we get to it, a reminder on the links between the hyperparameters in the BRTs algorithm...
+
+`learning_rate` is the influence any one tree has on the final prediction. The smaller this number, the more trees required for good fits and the more trees required to over-fit. **Rule of thumb**: somewhere between 0.1 for large, complex datasets to 0.00001 or smaller for small datasets. 
+
+`tree_complexity` is the tree depth of the individual trees. Deeper trees overfit more quickly, but shallow trees can require large numbers of trees to be built. **Rule of thumb**: shallow trees work well, usually 1 to 10 is a good range to explore.
+
+`bag_fraction` is the percent of the dataset that is considered for each tree (in each bag). For small datasets, should be kept larger. **Rule of thumb**: try 0.5, 0.625, and 0.75 for most datasets, if it's really small can go up to 0.9
+
+`number_of_trees` is the number of individual trees that are built. The `gbm.step` function in the  `dismo` package automatically tunes this one based on the three others, and this one becomes secondary to the other three for most appliations. **Rule of thumb**: Models that build at least 1000 trees tend to be best, but those that build at least 500 could be fine too. Models with many more trees (10,000+) may be unnecessarily restrained unless the dataset is very large.
+
+The learning rate, tree complexity, and number of trees are highly inter-connected. A model that has a high learning rate with high tree complexity will overfit with just a small number of trees. Increasing the tree complexity should probably correspond with a decrease in the learning rate if you're seeking similar performance. In practice with grid-search tuning, we'll explore all the combinations, but some of those combinations are much less likely to be the best model because of these links.
+
+To determine the set of hyper-parameters to consider, you can either: 
+
+- Build all models from a very wide range of hyper-parameters, which may take a lot of computational time.
+
+- Build an "un-tuned" model using trial and error to see how many trees are built, then selecting a range around the values that worked. 
+
+Before the workshop, we used the second option to figure out a reasonable set of values to use :).
+
+### Model tuning for our example
+
+For this example, we have just 731 rows (this algorithm can be data hungry) so we might have to be satisfied with a smaller number of trees in the tuned model.
+
+```{r}
+#| label: setup hyperparameters
+#| 
+
+learning_rate <- c(0.01, 0.001, 0.0001)
+tree_complexity <- c(1, 3, 5, 7, 9)
+bag_fraction <- c(0.5, 0.75)
+
+```
+
+Once we select the hyperparameters we'll consider, we need to do some setup so that we can do parallel processing of the tuning later.
+
+```{r}
+#| label: setup params list
+
+full_params_list <-
+  # get every combo of params
+  expand.grid(
+    learning_rate = learning_rate,
+    bag_fraction = bag_fraction,
+    tree_complexity = tree_complexity
+  ) |>
+  
+  # set up output col's
+  dplyr::mutate(ntrees = NA, dev_mean = NA, dev_se = NA) |>
+  dplyr::mutate(row_id = dplyr::row_number()) |>
+  
+  # split into list for parallel processing
+  dplyr::group_split(row_id, .keep = FALSE)
+```
+
+
+Now, we'll use the following code to make the tuning process run in parallel. It gets a little less fun to read, so the steps are outlined here first.
+
+- Determine the number of cores (parallel threads) you want to use
+
+- Make a function that builds a model for each combo of hyperparameters. This will be applied to each element of the `full_params_list`. We're calling it `mod_fun`.
+
+- Setup an empty cluster
+
+- Use `parallel::parLapply()` to apply the `mod_fun` function using the cluster
+
+- When it's done, stop the cluster
+
+- Bind the results together
+
+
+#### Determining number of cores
+
+Before we continue, here's some code that helps determine the number of cores you have available on your machine. 
+
+If I'm training a model like this, I'll usually use the number of cores I have, minus one to keep one available for other stuff on my computer. These model shouldn't take too long (about 30sec each), so you can use any number you want (but know that if you use just 1 it will take very roughly 30sec * 30 models = 15 minutes).
+
+You can use this code to see how many cores R has access to.
+
+```{r}
+parallel::detectCores()
+```
+Then you can change the `ncores` number below as you wish to change the number of cores used in the tuning process.
+
+#### Now doing the grid-search tuning in parallel
+
+First, we'll setup the function that allows us to build the model in parallel. It's a basic wrapper around the `dismo::gbm.step()` function that we'll use to build the final model after tuning.
+
+```{r}
+#| label: mod_fun
+
+# model-making function to parallelize
+mod_fun <- function(
+    spec_df, # spec_df is from the parameters
+    mod_df, # mod_df is the training data
+    pred_colnames, # character vector of predictor column names
+    response_colname, # response column name
+    wts_colname = NULL, # column name for weights, if applicable
+    family, # family supplied to gbm, see ?gbm distribution argument
+    max_trees = 10000, # maximum number of trees, useful as a cutoff to avoid long runs
+    silent
+) {
+  
+  # build model
+  mod <- dismo::gbm.step(
+    data = mod_df,
+    
+    # colnames of predictors
+    gbm.x = pred_colnames,
+    
+    # colname of response
+    gbm.y = response_colname,
+    
+    # wts vector
+    site.weights = mod_df[[wts_colname]],
+    
+    # mod specs
+    family = "bernoulli",
+    tree.complexity = spec_df$tree_complexity,
+    learning.rate = spec_df$learning_rate,
+    bag.fraction = spec_df$bag_fraction,
+    max.trees = max_trees,
+    
+    # prevent long messages and plots while running
+    silent = silent,
+    plot.main = FALSE
+  )
+  
+  # retrieve performance specs
+  spec_df$ntrees <- mod$n.trees
+  spec_df$dev_mean <- mod$cv.statistics$deviance.mean
+  spec_df$dev_se <- mod$cv.statistics$deviance.se
+  
+  spec_df
+}
+
+```
+
+Then we'll setup the number of cores and run the tuning.
+
+```{r}
+#| label: model tuning
+#| 
+
+# set number of cores
+ncores <- 5
+
+# Initialize a cluster with the specified number of cores
+cl <- parallel::makeCluster(
+  # take the minimum here to safely not use too many cores
+  min(ncores, parallel::detectCores(), length(full_params_list))
+  )
+
+# Apply function in parallel using parLapply
+par_list <- parallel::parLapply(
+  cl,
+  X = full_params_list, # each element of this list becomes spec_df for mod_fun
+  fun = mod_fun,
+  mod_df = bike_df,
+  pred_colnames = bike_pred_cols,
+  response_colname = "count", 
+  wts_colname = NULL, 
+  family = "poisson", 
+  max_trees = 10000, # maximum number of trees, useful as a cutoff to avoid long runs
+  silent
+)
+
+# stop the cluster when done
+parallel::stopCluster(cl)
+
+# bind rows into data frame
+tune_df <- dplyr::bind_rows(par_list)
+print(tune_df)
+
+```
+
+
+
+
+
+
+
+
+
+
 
 Thinking question: How would you ideally evaluate this model to predict the future year's demand?
 
