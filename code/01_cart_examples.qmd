@@ -12,9 +12,11 @@ toc: true
 #| echo: true
 #| message: false
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 library(rpart)
 library(Metrics)
+library(smotefamily)
 ```
 
 #### Before we start, a couple notes on some frequently used code that may be new to some of you...
