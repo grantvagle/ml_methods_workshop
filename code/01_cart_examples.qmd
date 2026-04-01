@@ -290,8 +290,118 @@ This time, the performance was actually worse for the training set than for the 
 
 But it also shows that relying on just one test set can be limiting. Next we'll show a few more examples of how to evaluate models using other cross-validation methods.
 
-# Example 2 - ?
+# Example 2 - Unbalanced data
 
-**INSERT** a second example - purpose is to show how to handle class imbalance and do k-fold cross validation, bonus if we can do k-fold and a temporal cross-validation or some other structured eval...ideally keep it short and simple coding wise
+We often have messy, unbalanced, sample-size-limited datasets in ecology and environmental science, and we can handle this in a few different ways depending on our purpose.
 
-SIMULATE EXAMPLE - red fish in superior red lake of the woods, has good recruitment more often than bad recruitment, but short lived so bad recruitment still matters a lot...example to show smote balancing, etc.
+Here, we'll work through an example with unbalanced data to show a useful approach for dealing with the reality of many of our datasets.
+
+## Red fish recruitment example
+
+We'll use recruitment data from a species of fish called "red fish" that lives in a fictional lake called "Superior Red Lake of the Woods" in Minnesota. The 100 years of data were "collected" via simulations generated with the help of [Claude](claud.ai).
+
+```{r}
+#| label: redfish_read
+#| echo: true
+
+redfish_data <- read.csv("../data/redfish_recruitment.csv")
+str(redfish_data)
+```
+
+Successful "recruitment", for our purposes, occurs when an individual fish goes from an egg to an adult fish. Red fish recruitment is "good" most years, but "bad" in others, and the bad years really affect the overall population because the red fish is a short-lived species. "Good" recruitment is hypothesized to depend on spring and summer temperatures, and the abundance (index) of a potential competitor "blue fish".
+
+We want to be able to predict whether recruitment will be good or bad for the future, based on these hypothesized predictors.
+
+$$ recruitment \sim spring\_temp\_c + summer\_temp\_c + bluefish\_index $$
+Because we want to predict the *future*, we probably shouldn't rely on a randomized test set , it's probably more appropriate to select our test set with time considered. Otherwise we'd be evaluating how to predict for a given year when we already know the future.
+
+So we'll train a model using the first 80 years of data, then evaluate the model's ability to predict the next 20 years. In theory, if we then train the same model on all 100 years of data, we should have *similar* performance when we predict the future 20 years.
+
+```{r}
+#| label: redfish_traintest
+#| echo: true
+
+range(redfish_data$year)
+
+year_split <- 2000
+
+redfish_train <- redfish_data |>
+  dplyr::filter(year <= 2000)
+
+redfish_test <- redfish_data |>
+  dplyr::filter(year > 2000)
+```
+
+
+Then, like above, we'll build a CART model using the training data and measure the accuracy on the test set.
+
+```{r}
+#| label: redfish_modbuild
+#| echo: true
+
+mod_redfish_train <- rpart(
+  recruitment ~ spring_temp_c + summer_temp_c + bluefish_index,
+  data = redfish_train,
+  method = "class"
+)
+
+# Visualize the tree
+plot(mod_redfish_train)
+text(mod_redfish_train, digits = 3)
+
+```
+
+
+```{r}
+#| label: redfish_modeval
+#| echo: true
+
+redfish_test$pred_recruitment <- 
+  # reduce predicted probabilities to just the predicted sex
+  predict(mod_redfish_train, redfish_test) |>
+  as.data.frame() |>
+  dplyr::mutate(pred_recruitment = ifelse(good > bad, "good", "bad")) |>
+  dplyr::pull(pred_recruitment)
+
+redfish_test |>
+  dplyr::group_by(recruitment, pred_recruitment) |>
+  dplyr::summarize(count = dplyr::n(), .groups = "drop") |>
+  tidyr::pivot_wider(id_cols = recruitment, names_from = pred_recruitment,
+                     names_prefix = "predicted_", values_from = count)
+
+Metrics::accuracy(actual = redfish_test$recruitment,
+                  predicted = redfish_test$pred_recruitment)
+
+```
+
+Notice how our accuracy measure is dependent on just 20 rows of data, and because our data are not balanced, it's hard to tell if we're doing a good job predicting good and bad years from the confusion matrix. We even have a missing element of the confusion matrix that isn't represented in the predictions from our test set.
+
+If we had an equal number of good and bad years, we could compare this accuracy metric to 0.5 (coin flip would be expected to get half of them correct). But because good years are more common than bad years, we actually have to compare this accuracy measure to an unfair coin...
+
+As a more extreme example, let's say our balance of good vs bad years was actually 90 good years and 10 bad years...a model that predicts good years all the time would achieve a 90% accuracy(!). So any model that gets built would have to be compared relative to that standard in order to be considered "useful".
+
+Back to our actual example, we can calculate the accuracy measure if we just predicted "good" every time for our test set:
+
+```{r}
+Metrics::accuracy(actual = redfish_test$recruitment,
+                  predicted = rep("good", nrow(redfish_test)))
+```
+
+So if we just said "good" every time, we'd be right `r 100 * Metrics::accuracy(actual = redfish_test$recruitment, predicted = rep("good", nrow(redfish_test)))` percent of the time (for the test set). So our model achieving `r 100 * Metrics::accuracy(actual = redfish_test$recruitment, predicted = redfish_test$pred_recruitment)` percent accuracy is an improvement, but not a huge improvement.
+
+
+#### Notes on how unbalanced data can affect models
+
+We saw in the above example that unbalanced data can affect the *evaluation* of a model, making it harder for a model to be considered "useful" in terms of improving model accuracy in highly unbalanced datasets.
+
+But when response variables are imbalanced, there are also fewer data points that correspond to that less-frequent class. If we were trying to predict red fish recruitment and 90% of the years were good, we'd be trying to use just 10 years of data to understand when recruitment is bad. So the "functional" sample size in unbalanced datasets is sometimes much smaller than it may seem.
+
+In summary, data imbalance affects models in two ways: 1) by complicating the measurement of performance and 2) by reducing the sample size relevant to the question you're asking.
+
+While we walked through this using a binary example (good vs bad), it gets even more complicated when your classification problem models even more categories (e.g., predicting which snack someone will eat).
+
+Next, we'll show a technique that synthetically over-samples the minority class(es) to provide a balanced dataset for model training.
+
+## Red fish recruitment continued...SMOTE Example
+
+
