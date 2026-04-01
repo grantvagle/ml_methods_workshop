@@ -492,7 +492,7 @@ Many algorithms have an option to supply "weights" (sometimes called "case weigh
 
 In our example, we might down-weight the good recruitment years to balance our dataset so that we might be able to better separate the good from the bad in model training.
 
-These are especially useful in species distribution models when using presence-only data (**INSERT EXAMPLE SOURCE**), or for rare-event prediction. For example, if you're trying to predict an outcome tied to rare weather events, you need to compare it to the entire sample of weather events. In this situation, you could easily end up with 10,000, 1 million, or more "non-events" to compare with a sample of 100 or fewer observed events. So by down-weighting the non-events, the model training process can occur with a balanced dataset by considering the non-events less often that the observed events at different stages in the model algorithm's process.
+These are especially useful in species distribution models when using presence-only data or for rare-event prediction. For example, if you're trying to predict an outcome tied to rare weather events, you need to compare it to the entire range of possible weather events. In this situation, you could easily end up with 10,000, 1 million, or more "non-events" to compare with a sample of 100 or fewer observed events. So by down-weighting the non-events, the model training process can occur with a balanced dataset by considering the non-events less often that the observed events at different stages in the model algorithm's process.
 
 A very small example on how to calculate weights for a rare-event prediction:
 
