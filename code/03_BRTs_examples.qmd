@@ -3,18 +3,23 @@ title: "03_BRTs_examples"
 format: html
 editor: visual
 number-sections: true
-number-depth: 3
+number-depth: 4
 toc: true
 ---
 
 ```{r}
+#| results: false
+#| message: false
+
 library(dplyr)
+library(ggplot2)
 library(parallel)
 library(gbm)
 library(dismo)
+library(forcats)
+
+set.seed(24)
 ```
-
-
 
 # Coding implementations of boosted regression trees (BRTs)
 
@@ -23,8 +28,6 @@ library(dismo)
 `dismo`'s `gbm.step` built-in k-fold cross-validation that tunes the number of trees based on the others and calculates some performance metrics for the folds
 
 Also found in `caret` and other packages, with different syntax, etc.
-
-
 
 # Building a BRT - bike sharing example
 
@@ -71,6 +74,79 @@ bike_df <- bike_share_day |>
   )
 ```
 
+## Handling correlated predictors
+
+```{r}
+#| label: setup num predictors
+possible_predictors <- c("season", "mnth", "holiday", "weekday", 
+                         "workingday", "weathersit", "temp", 
+                         "atemp", "hum", "windspeed")
+
+# get just the numeric predictors
+numeric_predictors_df <- bike_df |>
+  dplyr::select(dplyr::any_of(possible_predictors)) |>
+  # just the numeric cols
+  dplyr::select(dplyr::where(is.numeric)) 
+names(numeric_predictors_df)
+```
+
+Calculating a correlation for categorical variables is more complicated, so we're going to skip that for now. But for numeric variables we can use `caret`'s `findCorrelation` function to identify which variables should be excluded based on a provided correlation cutoff (we'll use 0.9 here).
+
+```{r}
+#| label: calc corr
+# calculate correlation coefficient
+corr_mat <- cor(numeric_predictors_df, use = "complete.obs")
+
+# visualize the correlations
+corrplot::corrplot(corr_mat, method = "color", tl.cex = 0.9)
+
+# identify which variables to exclude
+corr_var_indx <- caret::findCorrelation(corr_mat, cutoff = 0.9)
+
+# var's to be removed:
+num_vars_to_remove <- names(numeric_predictors_df)[corr_var_indx]
+num_vars_to_remove
+```
+
+Now we have a set of numeric variables that are not correlated more than a 0.9 (absolute value) with one another, which should help a bit with interpretation later.
+
+We'll also take a look at the categorical variables to see if there are any variables we'd like to exclude. Note that we'll do this qualitatively for this example, but there are ways to formally do this as well.
+
+```{r}
+#| label: look at cat vars
+
+# Month and season
+bike_df |>
+  dplyr::select(dplyr::any_of(possible_predictors)) |>
+  # just the factors
+  dplyr::select(dplyr::where(is.factor)) |>
+  ggplot(aes(x = season, y = mnth)) +
+  geom_jitter() +
+  theme_minimal()
+
+# weekday and working day
+bike_df |>
+  dplyr::select(dplyr::any_of(possible_predictors)) |>
+  # just the factors
+  dplyr::select(dplyr::where(is.factor)) |>
+  ggplot(aes(x = weekday, y = workingday, color = holiday)) +
+  geom_jitter() +
+  theme_minimal()
+
+```
+
+These variable combination are inherently connected to one another, so for our purposes we'll use just the month (exclude season) and just the working day column (exclude weekday and holiday). Depending on your specific purpose, you could make these decisions differently, but we'll just go with this for now.
+
+```{r}
+cat_vars_toremove <- c("season", "weekday", "holiday")
+
+# make vector of final predictors
+predictors_tomod <- bike_df |>
+  dplyr::select(dplyr::any_of(possible_predictors)) |>
+  dplyr::select(-dplyr::any_of(num_vars_to_remove),
+                -dplyr::any_of(cat_vars_toremove)) |>
+  names()
+```
 
 ## Model tuning
 
@@ -78,39 +154,71 @@ With BRTs (or any boosted models), model tuning is especially important to avoid
 
 Before we get to it, a reminder on the links between the hyperparameters in the BRTs algorithm...
 
-`learning_rate` is the influence any one tree has on the final prediction. The smaller this number, the more trees required for good fits and the more trees required to over-fit. **Rule of thumb**: somewhere between 0.1 for large, complex datasets to 0.00001 or smaller for small datasets. 
+`learning_rate` is the influence any one tree has on the final prediction. The smaller this number, the more trees required for good fits and the more trees required to over-fit. **Rule of thumb**: somewhere between 0.1 for large, complex datasets to 0.00001 or smaller for small datasets.
 
 `tree_complexity` is the tree depth of the individual trees. Deeper trees overfit more quickly, but shallow trees can require large numbers of trees to be built. **Rule of thumb**: shallow trees work well, usually 1 to 10 is a good range to explore.
 
 `bag_fraction` is the percent of the dataset that is considered for each tree (in each bag). For small datasets, should be kept larger. **Rule of thumb**: try 0.5, 0.625, and 0.75 for most datasets, if it's really small can go up to 0.9
 
-`number_of_trees` is the number of individual trees that are built. The `gbm.step` function in the  `dismo` package automatically tunes this one based on the three others, and this one becomes secondary to the other three for most appliations. **Rule of thumb**: Models that build at least 1000 trees tend to be best, but those that build at least 500 could be fine too. Models with many more trees (10,000+) may be unnecessarily restrained unless the dataset is very large.
+`number_of_trees` is the number of individual trees that are built. The `gbm.step` function in the `dismo` package automatically tunes this one based on the three others, and this one becomes secondary to the other three for most appliations. **Rule of thumb**: Models that build at least 1000 trees tend to be best, but those that build at least 500 could be fine too. Models with many more trees (10,000+) may be unnecessarily restrained unless the dataset is very large.
 
 The learning rate, tree complexity, and number of trees are highly inter-connected. A model that has a high learning rate with high tree complexity will overfit with just a small number of trees. Increasing the tree complexity should probably correspond with a decrease in the learning rate if you're seeking similar performance. In practice with grid-search tuning, we'll explore all the combinations, but some of those combinations are much less likely to be the best model because of these links.
 
-To determine the set of hyper-parameters to consider, you can either: 
+To determine the set of hyper-parameters to consider, you can either:
 
-- Build all models from a very wide range of hyper-parameters, which may take a lot of computational time.
+-   Build all models from a very wide range of hyper-parameters, which may take a lot of computational time.
 
-- Build an "un-tuned" model using trial and error to see how many trees are built, then selecting a range around the values that worked. 
+-   Build an "un-tuned" model using trial and error to see how many trees are built, then selecting a range around the values that worked.
 
 Before the workshop, we used the second option to figure out a reasonable set of values to use :).
 
+### First, let's look at an example model run, without tuning
+
+So we don't get lost in the weeds before we start, let's build a preliminary model first, without tuning the hyper-parameters. This will let us see the code and details of the model building. In the next section, we'll use parallel processing to do grid-search tuning.
+
+```{r}
+#| label: model_ex
+
+mod_ex <- dismo::gbm.step(
+  data = bike_df,
+  
+  # colnames of predictors
+  gbm.x = predictors_tomod,
+  
+  # colname of response
+  gbm.y = "count",
+  
+  # wts vector
+  site.weights = rep(1, nrow(bike_df)), # no weights applicable here, so all 1 (default)
+  
+  # mod specs
+  family = "poisson", # our response is count data, see ?gbm for the options
+  tree.complexity = 5,
+  learning.rate = 0.01,
+  bag.fraction = 0.5,
+  max.trees = 10000 # avoid long runs
+)
+
+mod_ex$cv.statistics
+```
+
+**INSERT** description of the different components of the model output / object
+
 ### Model tuning for our example
 
-For this example, we have just 731 rows (this algorithm can be data hungry) so we might have to be satisfied with a smaller number of trees in the tuned model.
+First, we'll set up the range of hyper-parameters we'll consider. Here, we're mostly considering a range of tree complexity, with the others set as just two options, for the sake of computational time.
 
 ```{r}
 #| label: setup hyperparameters
 #| 
 
-learning_rate <- c(0.01, 0.001, 0.0001)
+learning_rate <- c(0.01, 0.001)
 tree_complexity <- c(1, 3, 5, 7, 9)
 bag_fraction <- c(0.5, 0.75)
 
 ```
 
-Once we select the hyperparameters we'll consider, we need to do some setup so that we can do parallel processing of the tuning later.
+Once we select the hyper-parameters we'll consider, we need to do some setup so that we can use parallel processing for model tuning.
 
 ```{r}
 #| label: setup params list
@@ -131,33 +239,32 @@ full_params_list <-
   dplyr::group_split(row_id, .keep = FALSE)
 ```
 
-
 Now, we'll use the following code to make the tuning process run in parallel. It gets a little less fun to read, so the steps are outlined here first.
 
-- Determine the number of cores (parallel threads) you want to use
+-   Determine the number of cores (parallel threads) you want to use
 
-- Make a function that builds a model for each combo of hyperparameters. This will be applied to each element of the `full_params_list`. We're calling it `mod_fun`.
+-   Make a function that builds a model for each combo of hyperparameters. This will be applied to each element of the `full_params_list`. We're calling it `mod_fun`.
 
-- Setup an empty cluster
+-   Setup an empty cluster
 
-- Use `parallel::parLapply()` to apply the `mod_fun` function using the cluster
+-   Use `parallel::parLapply()` to apply the `mod_fun` function using the cluster
 
-- When it's done, stop the cluster
+-   When it's done, stop the cluster
 
-- Bind the results together
-
+-   Bind the results together
 
 #### Determining number of cores
 
-Before we continue, here's some code that helps determine the number of cores you have available on your machine. 
+Before we continue, here's some code that helps determine the number of cores you have available on your machine.
 
-If I'm training a model like this, I'll usually use the number of cores I have, minus one to keep one available for other stuff on my computer. These model shouldn't take too long (about 30sec each), so you can use any number you want (but know that if you use just 1 it will take very roughly 30sec * 30 models = 15 minutes).
+If I'm training a model like this, I'll usually use the number of cores I have, minus one to keep one available for other stuff on my computer. These model shouldn't take too long (about 30sec each), so you can use any number you want (but know that if you use just 1 it will take very roughly 30sec \* 30 models = 15 minutes).
 
 You can use this code to see how many cores R has access to.
 
 ```{r}
 parallel::detectCores()
 ```
+
 Then you can change the `ncores` number below as you wish to change the number of cores used in the tuning process.
 
 #### Now doing the grid-search tuning in parallel
@@ -179,6 +286,12 @@ mod_fun <- function(
     silent
 ) {
   
+  if (is.null(wts_colname)) {
+    wts = rep(1, nrow(mod_df))
+  } else {
+    wts = mod_df[[wts_colname]]
+  }
+  
   # build model
   mod <- dismo::gbm.step(
     data = mod_df,
@@ -190,10 +303,10 @@ mod_fun <- function(
     gbm.y = response_colname,
     
     # wts vector
-    site.weights = mod_df[[wts_colname]],
+    site.weights = wts,
     
     # mod specs
-    family = "bernoulli",
+    family = family,
     tree.complexity = spec_df$tree_complexity,
     learning.rate = spec_df$learning_rate,
     bag.fraction = spec_df$bag_fraction,
@@ -235,12 +348,12 @@ par_list <- parallel::parLapply(
   X = full_params_list, # each element of this list becomes spec_df for mod_fun
   fun = mod_fun,
   mod_df = bike_df,
-  pred_colnames = bike_pred_cols,
+  pred_colnames = predictors_tomod,
   response_colname = "count", 
   wts_colname = NULL, 
   family = "poisson", 
   max_trees = 10000, # maximum number of trees, useful as a cutoff to avoid long runs
-  silent
+  silent = TRUE
 )
 
 # stop the cluster when done
@@ -248,43 +361,117 @@ parallel::stopCluster(cl)
 
 # bind rows into data frame
 tune_df <- dplyr::bind_rows(par_list)
-print(tune_df)
+
+# sort by mean deviance and view
+tune_df |>
+  dplyr::arrange(dev_mean)
 
 ```
 
+This data frame provides us the model performance for each combination of hyper-parameters. The `dismo::gbm.step` uses the mean deviance as the measure to minimize for number of trees, so it also makes sense to use that one in this tuning step.
 
+Note that some of the combinations built 10,000 trees, which means that they didn't finish running before they reach our maximum number of trees. If one of these was high performing, we might want to re-consider the maximum number.
 
+Now, we select the "best" one, but the best one isn't necessarily the combination with the lowest mean deviance. You can look at the standard error of the deviance measure to see that many of the top combinations are performing similarly. It is then up to the modeler to make the final selection of the hyper-parameters that make the most sense.
 
+This can feel like more of an art than a science, but there are some rules of thumb that we've used at this stage.
 
+1)  "Enough" trees is subjective, but at least 1000 trees is a good benchmark.
 
+2)  Almost always, you should select a combination that performs "equally" well when considering the standard error of the deviance.
 
+3)  Generally, models with tree complexity greater than 1 are probably better if you think there are likely interactions between variables.
 
+#### Building the final model
 
+For this one, we picked the following parameters because it built enough trees (probably plenty for this dataset) and tied for the best performance. (Note that there is stochasticity in the tuning process, so the values might change as you run them, and it might build a different number of trees when you build the final model).
 
+Now let's build the selected model:
 
-Thinking question: How would you ideally evaluate this model to predict the future year's demand?
+```{r}
+lr <- 0.001
+tc <- 7
+bf <- 0.75
 
+bike_mod_full <- dismo::gbm.step(
+    data = bike_df,
+    
+    # colnames of predictors
+    gbm.x = predictors_tomod,
+    
+    # colname of response
+    gbm.y = "count",
+    
+    # wts vector
+    site.weights = rep(1, nrow(bike_df)),
+    
+    # mod specs
+    family = "poisson",
+    tree.complexity = tc,
+    learning.rate = lr,
+    bag.fraction = bf,
+    max.trees = 10000
+  )
 
+bike_mod_full$cv.statistics
+```
+
+##### Thinking question:
+
+Currently, we're using the internal cross-validation in `dismo::gbm.step` to evaluate this model, which limits us a bit on the metric we can use (only deviance and correlation easily available, though we could manually calculate others), and limits any structuring of the cross-validation.
+
+How would you ideally evaluate this model to predict the future year's demand?
 
 ## Basic model interpretation
 
-Variable importance and partial dependence plots from built-in's
+Variable importance is calculated as the percent relative influence for BRTs. The sum across all variables is equal to 100%. The variable importance measure is found in the model object.
 
+```{r}
+#| label: varimp
 
+bike_mod_full$contributions
+
+# plotting them (nicely) with ggplot
+bike_mod_full$contributions |>
+  dplyr::mutate(var = forcats::fct_reorder(var, rel.inf)) |>
+  ggplot(aes(x = rel.inf, y = var)) +
+  geom_col() +
+  labs(x = "Relative influence (%)", y = "") +
+  scale_x_continuous(expand = c(0, NA)) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.border = element_blank())
+```
+
+We can also use a built-in function from `dismo` to make the partial dependence plots.
+
+```{r}
+#| label: pdps
+
+dismo::gbm.plot(gbm.object = bike_mod_full)
+```
 
 # Deeper model interpretation via SHAP values
 
 SHapley Additive exPlanation (SHAP) values definitions and short theory on how they get calculated from model post-hoc
 
-Overview of package options - `iml` and `fastshap`
+Many R packages can calculate SHAP values, including those in the following table, with comparisons provided by Claude. Note that the method of SHAP value calculation/approximation varies among different approaches and that's beyond this workshop. There is also a [freely available book](https://christophm.github.io/interpretable-ml-book/) with a chapter focused on SHAP values, and a [book called "Interpreting machine learning methods with SHAP" by C. Molnar](https://christophmolnar.com/books/shap) that contains many more details (and python examples).
 
-We'll use the `iml` package which has some funky syntax
+| R package | [`iml`](https://christophm.github.io/iml/) | [`fastshap`](https://bgreenwell.github.io/fastshap/) | [`treeshap`](https://modeloriented.github.io/treeshap/) | [`shapr`](https://norskregnesentral.github.io/shapr/) |
+|---------------|---------------|---------------|---------------|---------------|
+| **Method** | Monte Carlo | Monte Carlo | Exact TreeSHAP | Conditional |
+| **Speed** | Slow | Medium | Fast | Medium |
+| **Model-agnostic** | ✅ | ✅ | ❌ (trees only) | ✅ |
+| **Handles correlation** | ❌ | ❌ | ❌ | ✅ |
+| **Built-in plots** | ✅ | ✅ | ✅ | ✅ |
+| **Batch inference** | Manual loop | ✅ | ✅ | ✅ |
+
+We'll use `fastshap` because it's not limited to tree-based methods (so it's better if you want to take this approach to another model type) and it's faster than `iml`. We've used `iml` in projects before, but the runtime can be somewhat lengthy.
 
 Make model "predictor", calculate shap values for one day, plot them
 
 Calculate shap values for all days, plot some possible summaries
 
 Point to resources
-
-
-
