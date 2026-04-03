@@ -51,6 +51,7 @@ Another possibly unfamiliar practice is the `::` notation. This allows a user to
 # Example 1 - Penguins!
 
 ![Artwork by @allison_horst](images/lter_penguins.png)
+
 **INSERT** overview/outline of the examples in this section, and a penguin image obviously
 
 
