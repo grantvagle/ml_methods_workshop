@@ -17,6 +17,8 @@ library(parallel)
 library(gbm)
 library(dismo)
 library(forcats)
+library(fastshap)
+library(shapviz)
 
 set.seed(24)
 ```
@@ -457,6 +459,8 @@ dismo::gbm.plot(gbm.object = bike_mod_full)
 
 SHapley Additive exPlanation (SHAP) values definitions and short theory on how they get calculated from model post-hoc
 
+**INSERT SHAP DESCRIPTIONS**
+
 Many R packages can calculate SHAP values, including those in the following table, with comparisons provided by Claude. Note that the method of SHAP value calculation/approximation varies among different approaches and that's beyond this workshop. There is also a [freely available book](https://christophm.github.io/interpretable-ml-book/) with a chapter focused on SHAP values, and a [book called "Interpreting machine learning methods with SHAP" by C. Molnar](https://christophmolnar.com/books/shap) that contains many more details (and python examples).
 
 | R package | [`iml`](https://christophm.github.io/iml/) | [`fastshap`](https://bgreenwell.github.io/fastshap/) | [`treeshap`](https://modeloriented.github.io/treeshap/) | [`shapr`](https://norskregnesentral.github.io/shapr/) |
@@ -470,8 +474,186 @@ Many R packages can calculate SHAP values, including those in the following tabl
 
 We'll use `fastshap` because it's not limited to tree-based methods (so it's better if you want to take this approach to another model type) and it's faster than `iml`. We've used `iml` in projects before, but the runtime can be somewhat lengthy.
 
-Make model "predictor", calculate shap values for one day, plot them
 
-Calculate shap values for all days, plot some possible summaries
+## SHAP values for our bike sharing example
 
-Point to resources
+To start, we have to make a "prediction function" that the `fastshap` will use. It's very basic, but a necessary component:
+
+```{r}
+pred_fun <- function(object, newdata) {
+  suppressMessages(
+    predict(object, newdata = newdata)
+  )
+}
+```
+
+
+Then we can actually calculate the SHAP values using the `explain` function from `fastshap`. Note that in the `X` argument, we can only supply variables that were actually predictors in our `bike_mod_full`. We'll use 20 in the `nsim` argument for the sake of time today, but 100 is probably a better rule of thumb.
+
+We're going to calculate the SHAP values for all rows of our training data, but in other projects it might make sense to calculate SHAP values for only a subset, or for some data outside the training data. All are possible, but if you're using summaries of SHAP values, you need to make sure you understand which set of rows they were calculated for.
+
+```{r}
+# Calculate SHAP values for all rows
+shap_fastshap <- fastshap::explain(
+  object = bike_mod_full,
+  X = bike_df |> 
+    dplyr::select(dplyr::any_of(predictors_tomod)),
+  pred_wrapper = pred_fun,
+  shap_only = FALSE,
+  nsim = 20,  # number of Monte Carlo repetitions
+)
+
+head(shap_fastshap)
+```
+
+
+For visualization, you can work with the values in the object directly, or use the `shapviz` package like we'll use below. We'll start by making a `shapviz` object from our results.
+
+```{r}
+# Convert to shapviz object
+sv <- shapviz(
+  shap_fastshap, 
+  X = bike_df
+)
+```
+
+
+### Plotting SHAP values
+
+There are *many* potential ways to visualize SHAP values. 
+
+We're going to look at them in a few different ways:
+
+1) First we'll look at the SHAP values for a single day, to get an idea of what the values actually mean.
+
+2) Then we'll look at some overall summaries that can give us overall trends (similar to variable importance plots from before, but with some more detail).
+
+3) Then we'll look at a couple example SHAP dependence plots that let you dive a bit deeper into how the model is using the data to make predictions.
+
+
+#### Single day SHAP values
+
+We'll do a little coding to help us match up the date to the SHAP results.
+
+```{r}
+# checkout a single date that you specify yourself
+date_of_interest <- "2012-01-30"
+
+# sv only includes the cols in shap_fastshap, so we'll make a look-up table for rows
+# instant is effectively the row number that was supplied to shapviz, so we'll use that to go between dates and the shap results
+row_of_interest <- bike_df |>
+  dplyr::select(instant, dteday) |>
+  dplyr::filter(dteday == date_of_interest) |>
+  dplyr::pull(instant)
+```
+
+Then we can look at plots of the SHAP values for that day. First, we'll look at a plot that we build manually using the values in the `sv` object.
+
+```{r}
+# get the feature vals
+feat_vals <- sv$X |>
+  as.data.frame() |>
+  # add row id and pivot longer
+  dplyr::mutate(rownum = dplyr::row_number()) |>
+  # make everything a character before pivoting
+  dplyr::mutate(across(everything(), as.character)) |>
+  tidyr::pivot_longer(cols = !rownum, 
+                      names_to = "feature",
+                      values_to = "feature_value")
+# get the shap vals
+shap_vals <- sv$S |>
+  as.data.frame() |>
+  # add row id and pivot longer
+  dplyr::mutate(rownum = as.character(dplyr::row_number())) |>
+  tidyr::pivot_longer(cols = !rownum, 
+                      names_to = "feature",
+                      values_to = "SHAP")
+
+# join shap with feature vals for plotting
+toplot_vals <- shap_vals |>
+  dplyr::left_join(feat_vals, 
+                   by = c("rownum", "feature"))
+
+# plot the shap vals with feature vals labeled for context
+toplot_vals |>
+  dplyr::filter(rownum == row_of_interest) |>
+  # paste values to make y-labels
+  dplyr::mutate(
+    feature_label = paste0(feature, "=", feature_value)
+  ) |>
+  # re-order factor for plotting
+  dplyr::mutate(
+    feature_label = forcats::fct_reorder(feature_label, SHAP)
+  ) |>
+  ggplot() +
+  geom_col(aes(x = SHAP, y = feature_label, fill = sign(SHAP)),
+           show.legend = FALSE) +
+  geom_vline(xintercept = 0) +
+  scale_fill_gradient2(low = "#f7d13d", mid = "white", high = "#a52c60") +
+  labs(y = "", x = "SHAP value", title = paste0("Date: ", date_of_interest)) +
+  theme_minimal()
+```
+
+
+Positive SHAP values indicate when the feature value for this date *increased* the predicted number of bike rentals, negative SHAP values indicate when the feature value for this date *decreased* the predicted number of bike rentals. The observed feature value for each feature gets a SHAP value, and each date gets a full set of SHAP values.
+
+For this date, temperature is substantially decreasing the predicted number of rentals, while the observed humidity is increasing the predicted number of rentals.
+
+SHAP values across all variables add up to the difference between the average predicted value across the training data and the predicted value for this individual date.
+
+So the net result here is that the observed values are decreasing the predicted number of bike rentals compared to the average number of rentals.
+
+Another way to visualize this is with a "waterfall" plot:
+
+```{r}
+sv_waterfall(sv, row_id = row_of_interest) +
+  ggtitle(paste0("Date: ", date_of_interest))
+```
+
+Waterfall plots show the same SHAP values, but emphasize the contributed change each variable gives to the final prediction ($f(x)=-0.3$) relative to the average prediction ($E[f(x)]=0$). The final position shows the summed difference (sum of all the SHAP values) from the average prediction on the x axis.
+
+
+
+Now, being able to see what variables contributed to individual predictions is super powerful! But in many cases it's not very feasible to look at those plots for all of the data points...we'd have to look at 700+ plots just for this example! RShiny dashboards that let you toggle through individual rows (whether they be dates or places) could help with that, but next we'll look at some summaries that give us a bigger picture.
+
+
+#### Summarizing SHAP values
+
+One of the simplest summaries we can calculate is the mean absolute value of the SHAP values across all rows. This gives us a variable importance measure, but based on the SHAP values (instead of the other ways these algorithms calculate variable importance).
+
+```{r}
+shapviz::sv_importance(sv)
+```
+
+Since these bars are summarizing over 700+ dates, we can also separate out some of those SHAP values in a plot called "beeswarm". It let's us look at variable importance, but with variability across dates more visible.
+
+```{r}
+shapviz::sv_importance(sv, kind = "beeswarm")
+```
+
+
+
+
+#### SHAP Dependence Plots
+
+We can also visualize the SHAP values alongside the values of the predictors. These are called "SHAP Dependence Plots", and they serve a similar purpose to partial dependence plots. However, they don't average across all data points, so they can show interactions and variability. They also don't operate on the same scale, with SHAP dependence plots using the SHAP value and PDPs using the predicted values.
+
+We'll look at a few different SHAP dependence plots here:
+
+```{r}
+shapviz::sv_dependence(sv, v = "mnth", color_var = NULL)
+```
+
+We can also color the points based on another variable for more context. Here, we'll look at month again but colored by temperature.
+
+```{r}
+shapviz::sv_dependence(sv, v = "mnth", color_var = "temp")
+```
+
+
+Another option is to plot in 2 dimensions with color representing the summed SHAP value between two variables. This can help visualize interactions, but can also get hard to interpret. We'll just look at one example for this with temperature and humidity:
+
+```{r}
+sv_dependence2D(sv, x = "temp", y = "hum")
+```
+
