@@ -55,16 +55,21 @@ bike_df <- bike_share_day |>
                 holiday, weekday, workingday, weathersit,
                 temp, atemp, hum, windspeed, "count" = cnt) |>
   
-  # translate season to words, make factors factors
+  # translate some columns back to words, make factors factors, re-scale var's
   dplyr::mutate(
     season = as.factor(dplyr::case_when(
-      season == 1 ~ "Winter",
-      season == 2 ~ "Spring",
-      season == 3 ~ "Summer",
-      season == 4 ~ "Autumn"
+      season == 1 ~ "Spring",
+      season == 2 ~ "Summer",
+      season == 3 ~ "Autumn",
+      season == 4 ~ "Winter"
     )),
     
-    weathersit = as.factor(weathersit),
+    weathersit = as.factor(dplyr::case_when(
+      weathersit == 1 ~ "Clear",
+      weathersit == 2 ~ "Cloudy",
+      weathersit == 3 ~ "Light precip",
+      weathersit == 4 ~ "Heavy precip"
+    )),
     
     mnth = as.factor(mnth),
     
@@ -72,7 +77,13 @@ bike_df <- bike_share_day |>
     
     workingday = as.factor(workingday),
     
-    holiday = as.factor(holiday)
+    holiday = as.factor(holiday),
+    
+    # put 0-1 normalized var's back to previous scales based on `data/bike_share_readme.txt`
+    temp = temp * 41, # was normalized by max
+    atemp = atemp * 50, # was normalized by max
+    hum = hum * 100, # was normalized by max (now percent)
+    windspeed = windspeed * 67 # was normalized by max
   )
 ```
 
@@ -412,7 +423,8 @@ bike_mod_full <- dismo::gbm.step(
     tree.complexity = tc,
     learning.rate = lr,
     bag.fraction = bf,
-    max.trees = 10000
+    max.trees = 10000, 
+    verbose = FALSE
   )
 
 bike_mod_full$cv.statistics
@@ -503,7 +515,7 @@ shap_fastshap <- fastshap::explain(
   nsim = 20,  # number of Monte Carlo repetitions
 )
 
-head(shap_fastshap)
+str(shap_fastshap)
 ```
 
 
