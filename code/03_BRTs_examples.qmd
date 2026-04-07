@@ -19,6 +19,7 @@ library(dismo)
 library(forcats)
 library(fastshap)
 library(shapviz)
+library(caret)
 
 set.seed(24)
 ```
@@ -486,7 +487,6 @@ Many R packages can calculate SHAP values, including those in the following tabl
 
 We'll use `fastshap` because it's not limited to tree-based methods (so it's better if you want to take this approach to another model type) and it's faster than `iml`. We've used `iml` in projects before, but the runtime can be somewhat lengthy.
 
-
 ## SHAP values for our bike sharing example
 
 To start, we have to make a "prediction function" that the `fastshap` will use. It's very basic, but a necessary component:
@@ -498,7 +498,6 @@ pred_fun <- function(object, newdata) {
   )
 }
 ```
-
 
 Then we can actually calculate the SHAP values using the `explain` function from `fastshap`. Note that in the `X` argument, we can only supply variables that were actually predictors in our `bike_mod_full`. We'll use 20 in the `nsim` argument for the sake of time today, but 100 is probably a better rule of thumb.
 
@@ -518,7 +517,6 @@ shap_fastshap <- fastshap::explain(
 str(shap_fastshap)
 ```
 
-
 For visualization, you can work with the values in the object directly, or use the `shapviz` package like we'll use below. We'll start by making a `shapviz` object from our results.
 
 ```{r}
@@ -529,19 +527,17 @@ sv <- shapviz(
 )
 ```
 
-
 ### Plotting SHAP values
 
-There are *many* potential ways to visualize SHAP values. 
+There are *many* potential ways to visualize SHAP values.
 
 We're going to look at them in a few different ways:
 
-1) First we'll look at the SHAP values for a single day, to get an idea of what the values actually mean.
+1)  First we'll look at the SHAP values for a single day, to get an idea of what the values actually mean.
 
-2) Then we'll look at some overall summaries that can give us overall trends (similar to variable importance plots from before, but with some more detail).
+2)  Then we'll look at some overall summaries that can give us overall trends (similar to variable importance plots from before, but with some more detail).
 
-3) Then we'll look at a couple example SHAP dependence plots that let you dive a bit deeper into how the model is using the data to make predictions.
-
+3)  Then we'll look at a couple example SHAP dependence plots that let you dive a bit deeper into how the model is using the data to make predictions.
 
 #### Single day SHAP values
 
@@ -606,7 +602,6 @@ toplot_vals |>
   theme_minimal()
 ```
 
-
 Positive SHAP values indicate when the feature value for this date *increased* the predicted number of bike rentals, negative SHAP values indicate when the feature value for this date *decreased* the predicted number of bike rentals. The observed feature value for each feature gets a SHAP value, and each date gets a full set of SHAP values.
 
 For this date, temperature is substantially decreasing the predicted number of rentals, while the observed humidity is increasing the predicted number of rentals.
@@ -624,10 +619,7 @@ sv_waterfall(sv, row_id = row_of_interest) +
 
 Waterfall plots show the same SHAP values, but emphasize the contributed change each variable gives to the final prediction ($f(x)=-0.3$) relative to the average prediction ($E[f(x)]=0$). The final position shows the summed difference (sum of all the SHAP values) from the average prediction on the x axis.
 
-
-
 Now, being able to see what variables contributed to individual predictions is super powerful! But in many cases it's not very feasible to look at those plots for all of the data points...we'd have to look at 700+ plots just for this example! RShiny dashboards that let you toggle through individual rows (whether they be dates or places) could help with that, but next we'll look at some summaries that give us a bigger picture.
-
 
 #### Summarizing SHAP values
 
@@ -642,9 +634,6 @@ Since these bars are summarizing over 700+ dates, we can also separate out some 
 ```{r}
 shapviz::sv_importance(sv, kind = "beeswarm")
 ```
-
-
-
 
 #### SHAP Dependence Plots
 
@@ -662,10 +651,8 @@ We can also color the points based on another variable for more context. Here, w
 shapviz::sv_dependence(sv, v = "mnth", color_var = "temp")
 ```
 
-
 Another option is to plot in 2 dimensions with color representing the summed SHAP value between two variables. This can help visualize interactions, but can also get hard to interpret. We'll just look at one example for this with temperature and humidity:
 
 ```{r}
 sv_dependence2D(sv, x = "temp", y = "hum")
 ```
-
