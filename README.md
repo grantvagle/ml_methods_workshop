@@ -19,14 +19,17 @@ Funding for this workshop was provided by the Minnesota Environment and Natural 
 - Download and install R and RStudio: [https://posit.co/download/rstudio-desktop/](https://posit.co/download/rstudio-desktop/)
 - If you're not familiar with the `tidyverse` or code piping, take a look [here](https://bookdown.org/yih_huynh/Guide-to-R-Book/tidyverse.html). We'll be using the `tidyverse` for data manipulation a lot in the workshop.
 - Install packages if you don't already have them:
-  - `dplyr`, `tidyr` (or install whole `tidyverse`)
+  - `dplyr`, `tidyr`, `forcats`, `ggplot2` (or install whole `tidyverse`)
   - `Metrics`
   - `dismo`
   - `gbm`
   - `caret`
   - `rpart`
+  - `smotefamily`
   - `fastshap`
   - `shapviz`
+  - `parallel`
+  - `corrplot`
   
 <!--
   ```
@@ -36,8 +39,11 @@ install.packages("dismo")
 install.packages("gbm")
 install.packages("caret")
 install.packages("rpart")
+install.packages("smotefamily")
 install.packages("fastshap")
 install.packages("shapviz")
+install.packages("parallel")
+install.packages("corrplot")
 ```
 -->
 
@@ -45,9 +51,9 @@ install.packages("shapviz")
 
 ## How to use this repository
 
-If you're not familiar with GitHub, download the `.zip` file by clicking the green "Code" button at the top of the page, then click "Download Zip". Once the download is finished, unzip the file and you can open the `.RProj` file in RStudio on your computer.
+Not familiar with GitHub? No problem, download the `.zip` file by clicking the green "Code" button at the top of the page, then click "Download Zip". Once the download is finished, unzip the file and you can open the `.RProj` file in RStudio on your computer.
 
-If you're familiar and comfortable with GitHub, you can `clone` or `fork` this repo to use it locally.
+Comfortable with GitHub? You can `clone` or `fork` this repo to use it locally, or just download the `.zip` as above.
 
 
 ## Organization of this repository
