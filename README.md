@@ -18,7 +18,7 @@ Funding for this workshop was provided by the Minnesota Environment and Natural 
 
 - Download and install R and RStudio: [https://posit.co/download/rstudio-desktop/](https://posit.co/download/rstudio-desktop/)
 - If you're not familiar with the `tidyverse` or code piping, take a look [here](https://bookdown.org/yih_huynh/Guide-to-R-Book/tidyverse.html). We'll be using the `tidyverse` for data manipulation a lot in the workshop.
-- Install packages if you don't already have them:
+- Install packages if you don't already have them (all are available through CRAN via `install.packages()`):
   - `dplyr`, `tidyr`, `forcats`, `ggplot2` (or install whole `tidyverse`)
   - `Metrics`
   - `dismo`
