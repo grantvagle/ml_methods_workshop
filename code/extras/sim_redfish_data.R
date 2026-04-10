@@ -84,6 +84,45 @@ cat("Recruitment class balance:\n")
 print(table(recruitment))
 cat(sprintf("Proportion of good years: %.1f%%\n\n", mean(recruitment) * 100))
 
+
+
+
+# 3.5 Add red fish abundance column for second example
+
+log_abundance_mean <- (
+  4.4                          # intercept → exp(4.4) ≈ 81 fish/ha baseline
+  - 0.04 * spring_temp          # weak negative (opposite to recruitment)
+  - 0.06 * summer_temp          # stronger negative linear effect
+  - 0.12 * bluefish_index       # competition suppression
+)
+
+# Simulate with log-normal noise (realistic: variance scales with mean,
+# no negative values, right-skewed distribution typical of abundance data)
+abundance_raw <- exp(log_abundance_mean + rnorm(n_years, mean = 0, sd = 0.25))
+
+# Add a simple lag-1 autoregressive smoothing pass to introduce
+# year-to-year temporal correlation (phi ≈ 0.35)
+phi <- 0.35
+abundance_ar <- numeric(n_years)
+abundance_ar[1] <- abundance_raw[1]
+for (i in 2:n_years) {
+  abundance_ar[i] <- phi * abundance_ar[i - 1] + (1 - phi) * abundance_raw[i]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ── 4. Assemble the Dataset ───────────────────────────────────────────────────
 
 redfish_data <- tibble(
@@ -92,7 +131,8 @@ redfish_data <- tibble(
   summer_temp_c   = round(summer_temp, 2),
   bluefish_index  = round(bluefish_index, 3),
   recruitment     = factor(recruitment, levels = c(0, 1),
-                           labels = c("bad", "good"))
+                           labels = c("bad", "good")),
+  redfish_abundance = round(abundance_ar, 1)
 )
 
 glimpse(redfish_data)
@@ -136,63 +176,16 @@ redfish_data %>%
        x = "Year", y = "Recruitment (1 = good)", fill = "Recruitment") +
   theme_minimal(base_size = 13)
 
-# # ── 7. Train/Test Split & Logistic Regression via caret ──────────────────────
-# 
-# set.seed(123)
-# 
-# train_index <- createDataPartition(redfish_data$recruitment,
-#                                    p = 0.75, list = FALSE)
-# train_data  <- redfish_data[train_index, ]
-# test_data   <- redfish_data[-train_index, ]
-# 
-# # Upsample the minority class ("bad") in training set to address imbalance
-# train_balanced <- upSample(
-#   x = train_data %>% select(spring_temp_c, summer_temp_c, bluefish_index),
-#   y = train_data$recruitment,
-#   yname = "recruitment"
-# )
-# 
-# cat("\nTraining set class balance after upsampling:\n")
-# print(table(train_balanced$recruitment))
-# 
-# # Cross-validation control
-# ctrl <- trainControl(
-#   method          = "cv",
-#   number          = 10,
-#   classProbs      = TRUE,
-#   summaryFunction = twoClassSummary,   # ROC, Sens, Spec
-#   savePredictions = "final"
-# )
-# 
-# # Fit logistic regression
-# set.seed(456)
-# logit_fit <- train(
-#   recruitment ~ spring_temp_c + summer_temp_c + bluefish_index,
-#   data      = train_balanced,
-#   method    = "glm",
-#   family    = "binomial",
-#   trControl = ctrl,
-#   metric    = "ROC"
-# )
-# 
-# cat("\n--- Model Summary ---\n")
-# print(summary(logit_fit$finalModel))
-# 
-# cat("\n--- Cross-Validation Performance ---\n")
-# print(logit_fit$results)
-# 
-# # Evaluate on held-out test set
-# test_preds <- predict(logit_fit, newdata = test_data)
-# test_probs <- predict(logit_fit, newdata = test_data, type = "prob")
-# 
-# cat("\n--- Test Set Confusion Matrix ---\n")
-# cm <- confusionMatrix(test_preds, test_data$recruitment, positive = "good")
-# print(cm)
-# 
-# # ── 8. Export Dataset ────────────────────────────────────────────────────────
-# 
-# write_csv(redfish_data, "redfish_recruitment_data.csv")
-# cat("\nDataset written to: redfish_recruitment_data.csv\n")
+
+redfish_data %>%
+  mutate(recruit_num = as.integer(recruitment == "good")) %>%
+  ggplot(aes(x = year, y = redfish_abundance)) +
+  geom_line() +
+  scale_fill_manual(values = c("bad" = "#d62728", "good" = "#1f77b4")) +
+  labs(title = "Red fish abundance over time",
+       subtitle = "Superior Red Lake of the Woods — Red Fish",
+       x = "Year", y = "Abundance index") +
+  theme_minimal(base_size = 13)
 
 
 
