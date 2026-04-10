@@ -9,6 +9,19 @@ toc: true
 
 
 
+```{r}
+#| results: false
+#| message: false
+
+library(randomForest)
+library(Metrics)
+library(dplyr)
+library(ggplot2)
+
+set.seed(22)
+```
+
+
 # Outline
 
 
@@ -48,12 +61,279 @@ Random forests can be built with a number of packages in R. We're going to use t
 
 # Back to our red fish example
 
-**INSERT PIC**
+![Red fish in Superior Red Lake of the Woods, "art" by Claude](images/superior_red_lake_of_the_woods.svg){width="50%" fig-align="left"}
 
-We're going to use our red fish example from Superior Red Lake of the Woods again, but this time, we're going to model 
+We're going to use our red fish example from Superior Red Lake of the Woods again, but this time, we're going to model red fish abundance based on the other predictor variables.
+
+$$ \text{red fish abundance} \sim \text{spring temp} + \text{summer temp} + \text{blue fish index} $$
+
+```{r}
+#| label: redfish_read
+#| echo: true
+
+redfish_data <- read.csv("../data/redfish_recruitment.csv")
+str(redfish_data)
+```
+This time, we're going to pretend it's 2001 (the birth year of random forests! [Breiman 2001](https://doi.org/10.1023/A:1010933404324)), and rely only on the first 80 years of data. We'll use the bagging approach in the random forest algorithm to evaluate the model as we build it. After we're done with the example, we'll see how well we can predict 2001-2021 (but not until the end!).
+
+```{r}
+#| label: redfish split
+
+redfish_train <- redfish_data |>
+  dplyr::filter(year <= 2001)
+```
+
+
+## Example model with default parameters
+First, we'll build an example model with default parameters just to get familiar with the code and output.
+
+```{r}
+#| label: rf example mod
 
 
 
+mod_ex <- randomForest::randomForest(
+  redfish_abundance ~ ., # the . implies everything else in the dataset
+  data = redfish_train |>
+    # remove the un-used variables
+    dplyr::select(-dplyr::any_of(c("year", "recruitment")))
+)
+
+plot(mod_ex)
+print(mod_ex)
+
+# predicted vs observed
+data.frame(
+  actual = redfish_train$redfish_abundance,
+  predicted = mod_ex$predicted) |>
+  ggplot(aes(x = actual, y = predicted)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  lims(x = c(0, 25), y = c(0, 25)) +
+  theme_minimal()
+
+```
+
+
+### Too many trees? No problem!
+
+One convenient feature of random forests is that you can't overfit by building too many trees. If you build a really large number of trees, you still see the out-of-bag (OOB) error hover at the same value. It doesn't help you to build many more trees than you need, but it doesn't hurt you in terms of overfitting either. As long as you see the OOB error stabilize you probably have enough trees; good enough is good enough!
+
+To show this, let's build another example with 10,000 trees.
+
+```{r}
+#| label: rf example mod ntree
+
+mod_ex_ntree <- randomForest::randomForest(
+  redfish_abundance ~ ., # the . implies everything else in the dataset
+  data = redfish_train |>
+    # remove the un-used variables
+    dplyr::select(-dplyr::any_of(c("year", "recruitment"))),
+  ntree = 10000
+)
+
+plot(mod_ex_ntree)
+print(mod_ex_ntree)
+
+```
+
+We end up with basically identical results! This is not true for the boosting approaches we'll learn in the next section, but is a really nice feature of random forests.
+
+
+
+
+
+## Building our final model for red fish abundance
+
+Much of the time, the defaults for random forests are pretty good (to see all of the defaults, run `?randomForest()`). But it's still a good idea to explore the hyper-parameter space to ensure you're getting the best possible model. 
+
+This is called **model tuning**, and it works differently for each algorithm, but is always a good idea and sometimes required depending on the algorithm you're working with.
+
+Random forests have a few hyper-parameters that you can tune:
+
+- **mtry**: the number of variables sampled as candidates at each split in the tree
+   - Regression: Defaults to 1/3 of the number of variables you have in the model
+   - Classification: defaults to square root of the number of variables
+- **sampsize**: size of sample to draw to build each tree (defaults)
+- **nodesize** / **maxnodes**: specify how deep an individual tree can be built
+  - **nodesize**: minimum number of data points in terminal nodes (bottom of tree)
+    - defaults to 5 for regression, 1 for classification
+  - **maxnodes**: max number of terminal nodes for a tree; operates secondary to nodesize
+  
+
+We'll tune this random forest model by looping over different values of `mtry`, we'll ignore the other ones for now.
+
+We'll build a model with each possible value of `mtry` and compare the mean-squared-error (aka mean of squared residuals) and the pseudo-R<sup>2</sup> (aka % var explained). Both of those values are provided in the `print()` call.
+
+```{r}
+mtry_to_check <- 1:3 # we're including just 3 predictors
+  
+rf_mtry_list <- list()
+for (m in mtry_to_check) {
+  rf_mtry_list[[m]] <- randomForest::randomForest(
+    redfish_abundance ~ ., # the . implies everything else in the dataset
+    data = redfish_train |>
+      # remove the un-used variables
+      dplyr::select(-dplyr::any_of(c("year", "recruitment"))),
+    ntree = 500,
+    mtry = m
+  )
+  
+  print(rf_mtry_list[[m]]) # print to compare performance
+}
+  
+```
+
+
+It looks like we get somewhat improved performance (lower error and higher variance explained) with `mtry = 2`, so we'll use that one as our final model going forward.
+
+```{r}
+redfish_mod_final <- rf_mtry_list[[2]]
+
+plot(redfish_mod_final)
+
+# predicted vs observed
+data.frame(
+  actual = redfish_train$redfish_abundance,
+  predicted = redfish_mod_final$predicted) |>
+  ggplot(aes(x = actual, y = predicted)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  lims(x = c(0, 25), y = c(0, 25)) +
+  theme_minimal()
+```
+It doesn't predict the extremes very well - when the actual value is high, the predicted value is mostly under-predicting. This is fine for us, since we can't do anything about red fish abundance (because it's not a real fish), but can be a common problem for models like this. There are some approaches that can help though (e.g., evaluating models based on a metric that emphasizes the extremes), and predicting extreme events has its own body of literature.
+
+Let's also check the time series trends to see how well those line up:
+
+```{r}
+# predicted vs observed
+data.frame(
+  year = redfish_train$year,
+  actual = redfish_train$redfish_abundance,
+  predicted = redfish_mod_final$predicted
+) |>
+  tidyr::pivot_longer(cols = c("actual", "predicted"), names_to = "type", values_to = "value" ) |>
+  ggplot(aes(x = year, y = value, group = type, color = type)) +
+  geom_line() +
+  scale_color_manual(breaks = c("actual", "predicted"),
+                     values = c("black", "orange")) +
+  theme_minimal()
+```
+Definitely not the best, but also not the worst. Our model is only capturing 38% of the variation in abundance, so we shouldn't expect it to be much better than this.
+
+
+
+
+## Now let's dig into the model with **model interpretation**
+
+"Model interpretation" is a fancy way of saying that we'll try and see what the model is doing to make these predictions. In a linear regression, we would just look at the coefficients. But here, we have 500 different decision trees making our predictions, so we have to summarize the variable contributions from many places, and it gets more complicated.
+
+We'll look into the model in two ways. First, we'll examine the **variable importance**. Then we'll look at **partial dependence plots** for each variable.
+
+
+### Variable importance
+
+For random forests, variable importance is calculated with the following metrics:
+
+- For regression, using the **increase in node purity** when the variable is included
+- For classification,
+  - **mean decrease in accuracy** if the variable was not included
+  - **mean decrease in Gini index** if the variable was not included
+  
+For a more detailed overview, see [this link](https://www.displayr.com/how-is-variable-importance-calculated-for-a-random-forest/).
+
+Here, we're doing regression, so we'll look at the increase in node purity. The `randomForest` package has some nice built-ins for this.
+
+```{r}
+# get importance values
+randomForest::importance(redfish_mod_final)
+
+# plot them
+randomForest::varImpPlot(redfish_mod_final)
+```
+So in this model, `bluefish_index` is the most important in driving our predictions, with `summer_temp_c` and `spring_temp_c` coming second and third. 
+
+Since our model has only three variables, we include a couple examples with more variables here:
+
+![Example variable importance plot (Dembkowski et al. 2024)](images/varimp_ex_shrovnal.jpeg){width="40%" fig-align="left"}
+
+![Example variable importance plot (Vagle et al. 2024)](images/varimp_ex_vagle.png){width="40%" fig-align="left"}
+
+
+
+### Partial dependence plots
+
+Partial dependence plots let you see the trends of a prediction based on the values of a variable. 
+
+The partial dependence at a given value is the average prediction if we force all data points to assume that value ([link](https://christophm.github.io/interpretable-ml-book/pdp.html)). 
+
+This means that potentially un-realistic combinations can influence the partial dependence plot. When variables are uncorrelated, the partial dependenc plot shows how the average prediction changes when you change the value of that variable. But when variables are correlated, the partial dependence plot reflects those un-realistic combinations and can be more difficult to interpret. It also averages over interactions or other effects that might be of interest to the modeler. 
+
+The [Interpretable Machine Learning](https://christophm.github.io/interpretable-ml-book/pdp.html) book has a long list of approaches, some of which can help deal with common issues with partial dependence plots. But we'll use one of them (SHAP values) in the next example, too.
+
+::: {.callout-note}
+## PDPs and variable distributions
+Note: partial dependence plots should always be interpreted with an understanding (ideally on the plot) of the distribution of the data. Otherwise, some regions of the plot can be over-interpreted even though they lack data points to inform them.
+:::
+
+
+Now let's view the partial dependence plots for our model...
+```{r}
+randomForest::partialPlot(redfish_mod_final,
+                          pred.data = redfish_train,
+                          x.var = "bluefish_index")
+```
+
+We can also get the values from this function to plot them ourselves.
+
+```{r}
+bluefish_pd_vals <- randomForest::partialPlot(
+  redfish_mod_final,
+  pred.data = redfish_train,
+  x.var = "bluefish_index",
+  plot = FALSE
+)
+str(bluefish_pd_vals)
+```
+
+
+Now let's get the partial dependence plots for all of our predictors and plot them together. We'll add the rug plots back in too.
+
+```{r}
+
+pred_vars <- c("bluefish_index", "summer_temp_c", "spring_temp_c")
+
+# some annoying-ly complicated code to make the `partialPlot()` function work for multiple variables
+pd_df <- lapply(pred_vars, function(v) {
+  pd_vals <- do.call(randomForest::partialPlot, list(
+    redfish_mod_final,
+    pred.data = redfish_train,
+    x.var = v,
+    plot = FALSE
+  ))
+  data.frame(x = pd_vals$x, y = pd_vals$y, variable = v)
+}) |>
+  dplyr::bind_rows()
+
+# transform the observed data to match structure
+rug_df <- redfish_train |>
+  dplyr::select(dplyr::any_of(pred_vars)) |>
+  tidyr::pivot_longer(cols = dplyr::everything(),
+                      names_to  = "variable",
+                      values_to = "x")
+
+# plot pd values and rug plot for all variables
+ggplot(pd_df, aes(x = x, y = y)) +
+  geom_line() +
+  geom_rug(data = rug_df, aes(x = x), sides = "b", alpha = 0.3,
+           inherit.aes = FALSE) +
+  facet_wrap(~ variable, scales = "free_x") +
+  labs(x = NULL,
+       y = "Partial dependence") +
+  theme_minimal()
+
+```
 
 
 
