@@ -9,6 +9,49 @@ toc: true
 
 
 
+# Outline
+
+
+- Regression example with Superior Red Lake of the Woods
+- Pretend it's 2001 (birth year of Random Forests!), trying to predict the future
+- Use out of bag performance to tune and evaluate the model
+- Fit example model with defaults, (maybe) look at variable importance in example
+- Show trees and leveling off with training error - can't overfit OOB error
+- model tuning - loop over m (1:p)
+- fit final model
+- interpret model - varimp and pdps (maybe interaction strength with H-stat)
+- See how well we predicted
+
+
+Bonus example:
+- wing length correlated var's example
+- show same prediction accuracy, different var imp
+
+Bonus example 2:
+- group sampling in random forest to deal with repeated measures - stratification (stratified sampling)
+
+
+## Random forests in R
+Random forests can be built with a number of packages in R. We're going to use the `randomForest` package in this workshop, but some others can be found in this table (from Claude).
+
+| Package | Best for | Pros | Cons | Speed |
+|---|---|---|---|---|
+| `randomForest` | Learning, small–medium datasets | + The classic, well-documented reference implementation<br>+ Simple, stable API<br>+ Built-in `varImpPlot` and `tuneRF`<br>+ Works seamlessly with `caret` / `tidymodels` | − Single-threaded — slow on large data<br>− High memory use (stores all trees)<br>− No native support for sparse matrices | Moderate |
+| `ranger` | Production use, large datasets | + Multi-threaded (set `num.threads`) — much faster<br>+ Low memory footprint<br>+ Survival, regression, and classification<br>+ Drop-in replacement for `randomForest` syntax | − Fewer built-in diagnostics / plot helpers<br>− Variable importance less flexible than `randomForest` | Fast |
+| `h2o` | Very large data, distributed computing | + Distributed / cluster-ready (runs on Spark, AWS)<br>+ Auto-handles categorical encoding<br>+ Built-in cross-validation and grid search<br>+ Supports extremely large datasets | − Requires a running H2O JVM cluster<br>− More complex setup; heavier dependency<br>− Data must be converted to H2O frames | Very fast |
+| `Rborist` | High-dimensional data | + Very fast on wide (high-p) data<br>+ Memory-efficient tree storage<br>+ Parallel by default | − Less mature ecosystem and documentation<br>− Fewer output diagnostics<br>− Smaller community / fewer Stack Overflow answers | Fast |
+| `partykit` (cforest) | Unbiased variable selection | + Conditional inference trees — unbiased variable importance<br>+ Better handling of mixed-type / correlated predictors<br>+ Rigorous statistical framework | − Noticeably slower than ranger / randomForest<br>− Less intuitive API for beginners<br>− Fewer ecosystem integrations | Slow |
+
+
+
+
+
+# Back to our red fish example
+
+**INSERT PIC**
+
+We're going to use our red fish example from Superior Red Lake of the Woods again, but this time, we're going to model 
+
 
 
 
