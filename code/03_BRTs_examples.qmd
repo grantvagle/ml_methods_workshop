@@ -431,11 +431,13 @@ bike_mod_full <- dismo::gbm.step(
 bike_mod_full$cv.statistics
 ```
 
-##### Thinking question:
+::: {.callout-note}
+## Thinking question:
 
 Currently, we're using the internal cross-validation in `dismo::gbm.step` to evaluate this model, which limits us a bit on the metric we can use (only deviance and correlation easily available, though we could manually calculate others), and limits any structuring of the cross-validation.
 
 How would you ideally evaluate this model to predict the future year's demand?
+:::
 
 ## Basic model interpretation
 
