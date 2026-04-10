@@ -54,7 +54,6 @@ Another possibly unfamiliar practice is the `::` notation. This allows a user to
 
 **INSERT** overview/outline of the examples in this section, and a penguin image obviously
 
-
 ## Read in penguins data
 
 ```{r}
@@ -102,10 +101,9 @@ str(penguins_test)
 
 For this first example model, let's try to predict body mass using flipper length and bill depth.
 
-$$ body\_mass \sim flipper\_len + bill\_dep $$
+$$ \text{body mass} \sim  \text{flipper length} + \text{bill depth} $$
 
-![Artwork by @allison_hurst](images/culmen_depth.png){width=50% fig-align="left"}
-
+![Artwork by @allison_hurst](images/culmen_depth.png){width="50%" fig-align="left"}
 
 For Classification and Regression Trees, we'll use the `rpart` package and the `rpart` function with the default parameters.
 
@@ -153,7 +151,7 @@ The root mean squared error (RMSE) tells us how close our predicted value is to 
 
 RMSE retains the same units as the dependent variable, so it should be interpreted with that context.
 
-$$ RMSE = \sqrt{ \frac{\sum (observed - predicted)^2 }{n} } $$
+$$ RMSE = \sqrt{ \frac{\sum (\text{observed} - \text{predicted})^2 }{n} } $$
 
 ```{r}
 #| label: calc_mod_mass_metrics
@@ -197,7 +195,7 @@ For other model algorithms, this becomes even more pronounced, so "proper" evalu
 
 For this second example, let's try to predict penguin sex using flipper length and bill depth.
 
-$$ sex \sim flipper\_len + bill\_dep $$
+$$ \text{sex} \sim \text{flipper length} + \text{bill depth} $$
 
 ```{r}
 #| label: build_mod_sex
@@ -301,10 +299,9 @@ Here, we'll work through an example with unbalanced data to show a useful approa
 
 ## Red fish recruitment example
 
-
 We'll use recruitment data from a species of fish called "red fish" that lives in a fictional lake called "Superior Red Lake of the Woods" in Minnesota. The 100 years of data were "collected" via simulations generated with the help of [Claude](https://claud.ai).
 
-![Red fish in Superior Red Lake of the Woods, "art" by Claude](images/superior_red_lake_of_the_woods.svg){width=50% fig-align="left"}
+![Red fish in Superior Red Lake of the Woods, "art" by Claude](images/superior_red_lake_of_the_woods.svg){width="50%" fig-align="left"}
 
 ```{r}
 #| label: redfish_read
@@ -318,8 +315,7 @@ Successful "recruitment", for our purposes, occurs when an individual fish goes 
 
 We want to be able to predict whether recruitment will be good or bad for the future, based on these hypothesized predictors.
 
-$$ recruitment \sim spring\_temp\_c + summer\_temp\_c + bluefish\_index $$
-Because we want to predict the *future*, we probably shouldn't rely on a randomized test set , it's probably more appropriate to select our test set with time considered. Otherwise we'd be evaluating how to predict for a given year when we already know the future.
+$$ \text{recruitment} \sim \text{spring temp} + \text{summer temp} + \text{blue fish index} $$ Because we want to predict the *future*, we probably shouldn't rely on a randomized test set , it's probably more appropriate to select our test set with time considered. Otherwise we'd be evaluating how to predict for a given year when we already know the future.
 
 So we'll train a model using the first 80 years of data, then evaluate the model's ability to predict the next 20 years. In theory, if we then train the same model on all 100 years of data, we should have *similar* performance when we predict the future 20 years.
 
@@ -338,7 +334,6 @@ redfish_test <- redfish_data |>
   dplyr::filter(year > 2000)
 ```
 
-
 Then, like above, we'll build a CART model using the training data and measure the accuracy on the test set.
 
 ```{r}
@@ -356,7 +351,6 @@ plot(mod_redfish_train)
 text(mod_redfish_train, digits = 3)
 
 ```
-
 
 ```{r}
 #| label: redfish_modeval
@@ -395,7 +389,6 @@ Metrics::accuracy(actual = redfish_test$recruitment,
 
 So if we just said "good" every time, we'd be right `r 100 * Metrics::accuracy(actual = redfish_test$recruitment, predicted = rep("good", nrow(redfish_test)))` percent of the time (for the test set). So our model achieving `r 100 * Metrics::accuracy(actual = redfish_test$recruitment, predicted = redfish_test$pred_recruitment)` percent accuracy is an improvement, but not a huge improvement.
 
-
 ### Notes on how unbalanced data can affect models
 
 We saw in the above example that unbalanced data can affect the *evaluation* of a model, making it harder for a model to be considered "useful" in terms of improving model accuracy in highly unbalanced datasets.
@@ -414,13 +407,13 @@ Next, we'll show a technique that synthetically over-samples the minority class(
 
 SMOTE = Synthetic Minority Over-sampling Technique<sup>1</sup>
 
-SMOTE augments datasets by over-sampling the minority class (bad recruitment in our red fish example) using a K-nearest neighbors approach. It takes each row in the minority class, finds its K (e.g., 5) nearest neighbors and uses them to simulate a new row that it labels with the minority class (e.g., "bad"). 
+SMOTE augments datasets by over-sampling the minority class (bad recruitment in our red fish example) using a K-nearest neighbors approach. It takes each row in the minority class, finds its K (e.g., 5) nearest neighbors and uses them to simulate a new row that it labels with the minority class (e.g., "bad").
 
 It helps avoid over-fitting compared to replicating the rows in the minority class, and helps provide a balanced dataset for model training.
 
 One limitation is that it is limited to numeric variables because of the specifics of the nearest neighbors approach, so other approaches would need to be used with categorical predictors (**INSERT RESOURCE**).
 
-<sup>1</sup>Chawla et al. (2002). SMOTE: Synthetic Minority Over-sampling Technique. Journal of Artificial Intelligence Research 16: 321-357. [https://doi.org/10.1613/jair.953](https://doi.org/10.1613/jair.953)
+<sup>1</sup>Chawla et al. (2002). SMOTE: Synthetic Minority Over-sampling Technique. Journal of Artificial Intelligence Research 16: 321-357. <https://doi.org/10.1613/jair.953>
 
 #### Our example with SMOTE
 
@@ -450,7 +443,6 @@ table(redfish_train$recruitment)
 nrow(train_smote$data)
 table(train_smote$data$class)
 ```
-
 
 ```{r}
 #| label: redfish_smote_build
@@ -483,7 +475,6 @@ redfish_test |>
 Metrics::accuracy(actual = redfish_test$recruitment,
                   predicted = redfish_test$pred_recruitment)
 ```
-
 
 The accuracy and confusion matrix have changed with the SMOTE additional data rows! It's hard to tell if that's a meaningful improvement in this example, since adding the SMOTE adds complexity, but it some cases it can be extremely useful for getting models to converge and have useful predictions.
 
@@ -523,7 +514,8 @@ rare_event_df <- rare_event_df |>
   )
 ```
 
-Then the sum of the row weights across the whole dataset shows the "balance" of the dataset in the eyes of the model algorithm. 
+Then the sum of the row weights across the whole dataset shows the "balance" of the dataset in the eyes of the model algorithm.
+
 ```{r}
 # look at sum of row weights, shows dataset balance
 rare_event_df |>
