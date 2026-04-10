@@ -22,28 +22,6 @@ set.seed(22)
 ```
 
 
-# Outline
-
-
-- Regression example with Superior Red Lake of the Woods
-- Pretend it's 2001 (birth year of Random Forests!), trying to predict the future
-- Use out of bag performance to tune and evaluate the model
-- Fit example model with defaults, (maybe) look at variable importance in example
-- Show trees and leveling off with training error - can't overfit OOB error
-- model tuning - loop over m (1:p)
-- fit final model
-- interpret model - varimp and pdps (maybe interaction strength with H-stat)
-- See how well we predicted
-
-
-Bonus example:
-- wing length correlated var's example
-- show same prediction accuracy, different var imp
-
-Bonus example 2:
-- group sampling in random forest to deal with repeated measures - stratification (stratified sampling)
-
-
 ## Random forests in R
 Random forests can be built with a number of packages in R. We're going to use the `randomForest` package in this workshop, but some others can be found in this table (from Claude).
 
@@ -334,6 +312,19 @@ ggplot(pd_df, aes(x = x, y = y)) +
   theme_minimal()
 
 ```
+
+
+
+
+
+
+# Bonus example - looking closer at correlated variables
+
+
+
+# Bonus example \#2 - stratified sampling to handle repeated measures
+
+
 
 
 
