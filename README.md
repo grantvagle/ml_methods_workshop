@@ -2,7 +2,7 @@
 
 ## Workshop facilitators
 
-The workshop was developed by Grant Vagle, Jeremiah Shrovnal, and Lynn Waterhouse. Liv Nyffeler and Molly Tilsen provided feedback on workshop content and helped manage the event.
+The workshop was developed by Grant Vagle, Jeremiah Shrovnal, and Lynn Waterhouse with vital contributions from Olivia Nyffeler and Molly Tilsen.
 
 Funding for this workshop was provided by the Minnesota Environment and Natural Resources Trust Fund as recommended by the Legislative-Citizen Commission on Minnesota Resources (LCCMR).
 
