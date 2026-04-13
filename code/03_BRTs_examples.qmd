@@ -41,7 +41,7 @@ Our task is to predict bike rental counts based on the season, weather, and type
 ```{r}
 #| label: read bike data
 
-bike_share_day <- read.csv("../data/bike_share_day.csv")
+bike_share_day <- read.csv("data/bike_share_day.csv")
 str(bike_share_day)
 ```
 
@@ -431,7 +431,7 @@ bike_mod_full <- dismo::gbm.step(
 bike_mod_full$cv.statistics
 ```
 
-::: {.callout-note}
+::: callout-note
 ## Thinking question:
 
 Currently, we're using the internal cross-validation in `dismo::gbm.step` to evaluate this model, which limits us a bit on the metric we can use (only deviance and correlation easily available, though we could manually calculate others), and limits any structuring of the cross-validation.

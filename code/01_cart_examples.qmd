@@ -307,7 +307,7 @@ We'll use recruitment data from a species of fish called "red fish" that lives i
 #| label: redfish_read
 #| echo: true
 
-redfish_data <- read.csv("../data/redfish_recruitment.csv")
+redfish_data <- read.csv("data/redfish_recruitment.csv")
 str(redfish_data)
 ```
 
