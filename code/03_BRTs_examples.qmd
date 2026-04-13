@@ -391,9 +391,12 @@ tune_df |>
 
 #### Model tuning in loop form
 
-To avoid some of the complications of parallel computing for this workshop, we'll use a loop. The max trees here is set to 2000 trees so that the runtime doesn't take too long, but in practice this is pretty limiting. A max of 5000 or 10,000 trees is a better rule of thumb to balance efficiency with identifying a top model.
+To avoid some of the complications of parallel computing for this workshop, we'll use a loop. The max trees here is set to 2000 trees so that the runtime doesn't take too long, but in practice this is pretty limiting. A max of 5,000 or 10,000 trees is a better rule of thumb to balance efficiency with identifying a top model. 
+
+This tuning step should take less than 2 minutes with a max of 2000 trees; it takes about 4 minutes with a max of 10,000 trees (but can multiply much more for complicated models or large datasets).
 
 ```{r}
+#| label: model tuning loop (1.5-2min)
 
 tune_res_list <- list()
 for (i in seq_len(length(full_params_list))) {
@@ -442,7 +445,14 @@ tune_df |>
 
 This data frame provides us the model performance for each combination of hyper-parameters. The `dismo::gbm.step` uses the mean deviance as the measure to minimize for number of trees, so it also makes sense to use that one in this tuning step.
 
-Note that some of the combinations built 10,000 trees, which means that they didn't finish running before they reach our maximum number of trees. If one of these was high performing, we might want to re-consider the maximum number.
+::: callout-note
+Note that some (many) of the combinations built the maximum number of trees, which means that they didn't finish running before they reach our maximum number of trees. Because they reached the max, they weren't evaluated at their best, just their best under the maximum number of trees. 
+
+If you were prioritizing comparing each combination of the parameters, you'd probably want to increase the maximum number of trees.
+
+If you were prioritizing efficiency, you might not care if some of those models reached the max. Especially if it's likely to have similar performance to a parameter combination that builds a smaller number of trees and is therefore faster.
+
+:::
 
 Now, we select the "best" one, but the best one isn't necessarily the combination with the lowest mean deviance. You can look at the standard error of the deviance measure to see that many of the top combinations are performing similarly. It is then up to the modeler to make the final selection of the hyper-parameters that make the most sense.
 
@@ -461,8 +471,8 @@ For this one, we picked the following parameters because it built enough trees (
 Now let's build the selected model:
 
 ```{r}
-lr <- 0.001
-tc <- 7
+lr <- 0.01
+tc <- 5
 bf <- 0.75
 
 bike_mod_full <- dismo::gbm.step(
