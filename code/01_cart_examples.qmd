@@ -13,6 +13,7 @@ toc: true
 #| message: false
 library(dplyr)
 library(tidyr)
+library(here)
 library(ggplot2)
 library(rpart)
 library(Metrics)
@@ -310,7 +311,7 @@ We'll use recruitment data from a species of fish called "red fish" that lives i
 #| label: redfish_read
 #| echo: true
 
-redfish_data <- read.csv("data/redfish_recruitment.csv")
+redfish_data <- read.csv(here::here("data", "redfish_recruitment.csv"))
 str(redfish_data)
 ```
 

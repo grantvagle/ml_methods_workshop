@@ -43,7 +43,7 @@ $$ \text{red fish abundance} \sim \text{spring temp} + \text{summer temp} + \tex
 #| label: redfish_read
 #| echo: true
 
-redfish_data <- read.csv("data/redfish_recruitment.csv")
+redfish_data <- read.csv(here::here("data", "redfish_recruitment.csv"))
 str(redfish_data)
 ```
 
