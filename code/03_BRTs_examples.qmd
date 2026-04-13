@@ -174,7 +174,7 @@ Before we get to it, a reminder on the links between the hyperparameters in the 
 
 `bag_fraction` is the percent of the dataset that is considered for each tree (in each bag). For small datasets, should be kept larger. **Rule of thumb**: try 0.5, 0.625, and 0.75 for most datasets, if it's really small can go up to 0.9
 
-`number_of_trees` is the number of individual trees that are built. The `gbm.step` function in the `dismo` package automatically tunes this one based on the three others, and this one becomes secondary to the other three for most appliations. **Rule of thumb**: Models that build at least 1000 trees tend to be best, but those that build at least 500 could be fine too. Models with many more trees (10,000+) may be unnecessarily restrained unless the dataset is very large.
+`number_of_trees` is the number of individual trees that are built. The `gbm.step` function in the `dismo` package automatically tunes this one based on the three others, and this one becomes secondary to the other three for most applications. **Rule of thumb**: Models that build at least 1000 trees tend to be best, but those that build at least 500 could be fine too. Models with many more trees (10,000+) may be unnecessarily restrained unless the dataset is very large.
 
 The learning rate, tree complexity, and number of trees are highly inter-connected. A model that has a high learning rate with high tree complexity will overfit with just a small number of trees. Increasing the tree complexity should probably correspond with a decrease in the learning rate if you're seeking similar performance. In practice with grid-search tuning, we'll explore all the combinations, but some of those combinations are much less likely to be the best model because of these links.
 
@@ -253,6 +253,8 @@ full_params_list <-
   dplyr::group_split(row_id, .keep = FALSE)
 ```
 
+
+<details><summary> Description and code for parallel processing </summary>
 Now, we'll use the following code to make the tuning process run in parallel. It gets a little less fun to read, so the steps are outlined here first.
 
 -   Determine the number of cores (parallel threads) you want to use
@@ -276,10 +278,12 @@ If I'm training a model like this, I'll usually use the number of cores I have, 
 You can use this code to see how many cores R has access to.
 
 ```{r}
+#| eval: false
 parallel::detectCores()
 ```
 
 Then you can change the `ncores` number below as you wish to change the number of cores used in the tuning process.
+
 
 #### Now doing the grid-search tuning in parallel
 
@@ -287,6 +291,7 @@ First, we'll setup the function that allows us to build the model in parallel. I
 
 ```{r}
 #| label: mod_fun
+#| eval: false
 
 # model-making function to parallelize
 mod_fun <- function(
@@ -345,7 +350,7 @@ Then we'll setup the number of cores and run the tuning.
 
 ```{r}
 #| label: model tuning
-#| 
+#| eval: false
 
 # set number of cores
 ncores <- 5
@@ -381,6 +386,16 @@ tune_df |>
   dplyr::arrange(dev_mean)
 
 ```
+</details>
+
+
+To avoid some of the complications of parallel computing for this workshop, we'll use a loop too.
+
+```{r}
+# INSERT CODE THAT LOOPS THROUGH COMBOS
+```
+
+
 
 This data frame provides us the model performance for each combination of hyper-parameters. The `dismo::gbm.step` uses the mean deviance as the measure to minimize for number of trees, so it also makes sense to use that one in this tuning step.
 
