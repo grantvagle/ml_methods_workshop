@@ -51,7 +51,7 @@ install.packages("corrplot")
 
 ## How to use this repository
 
-Not familiar with GitHub? No problem, download the `.zip` file by clicking the green "Code" button at the top of the page, then click "Download Zip". Once the download is finished, unzip the file and you can open the `.RProj` file in RStudio on your computer.
+Not familiar with GitHub? No problem, download the `.zip` file by clicking the green "Code" button at the top of the page, then click "Download Zip". Once the download is finished, unzip the file and you can open the `ml_methods_workshop.RProj` file in RStudio on your computer.
 
 Comfortable with GitHub? You can `clone` or `fork` this repo to use it locally, or just download the `.zip` as above.
 
