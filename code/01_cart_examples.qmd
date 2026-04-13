@@ -173,6 +173,9 @@ rmse / mean(penguins_test$body_mass)
 
 ```
 
+**INSERT MORE CONTEXT **This last value is called the Coefficient of Variation of the RMSE
+
+
 ### Comparing test set performance to training set performance
 
 Just to demonstrate the need for independent test sets, here we calculate the RMSE for model predictions on the training dataset.
@@ -476,7 +479,7 @@ Metrics::accuracy(actual = redfish_test$recruitment,
                   predicted = redfish_test$pred_recruitment)
 ```
 
-The accuracy and confusion matrix have changed with the SMOTE additional data rows! It's hard to tell if that's a meaningful improvement in this example, since adding the SMOTE adds complexity, but it some cases it can be extremely useful for getting models to converge and have useful predictions.
+The accuracy and confusion matrix have changed with the SMOTE additional data rows! It's hard to tell if that's a meaningful improvement in this example, since adding the SMOTE adds complexity, but in some cases it can be extremely useful for getting models to converge and have useful predictions.
 
 ## Some more notes on unbalanced data - row weights
 
