@@ -3,7 +3,7 @@ title: "03_BRTs_examples"
 format: html
 editor: visual
 number-sections: true
-number-depth: 4
+number-depth: 3
 toc: true
 ---
 
@@ -41,7 +41,7 @@ Our task is to predict bike rental counts based on the season, weather, and type
 ```{r}
 #| label: read bike data
 
-bike_share_day <- read.csv("data/bike_share_day.csv")
+bike_share_day <- read.csv(here::here("data", "bike_share_day.csv"))
 str(bike_share_day)
 ```
 
@@ -232,7 +232,7 @@ bag_fraction <- c(0.5, 0.75)
 
 ```
 
-Once we select the hyper-parameters we'll consider, we need to do some setup so that we can use parallel processing for model tuning.
+Once we select the hyper-parameters we'll consider, we need to do some setup so that we can do our model tuning efficiently.
 
 ```{r}
 #| label: setup params list
@@ -253,7 +253,7 @@ full_params_list <-
   dplyr::group_split(row_id, .keep = FALSE)
 ```
 
-
+#### Parallel processing (optional; not run on render)
 <details><summary> Description and code for parallel processing </summary>
 Now, we'll use the following code to make the tuning process run in parallel. It gets a little less fun to read, so the steps are outlined here first.
 
@@ -389,10 +389,53 @@ tune_df |>
 </details>
 
 
-To avoid some of the complications of parallel computing for this workshop, we'll use a loop too.
+#### Model tuning in loop form
+
+To avoid some of the complications of parallel computing for this workshop, we'll use a loop. The max trees here is set to 2000 trees so that the runtime doesn't take too long, but in practice this is pretty limiting. A max of 5000 or 10,000 trees is a better rule of thumb to balance efficiency with identifying a top model.
 
 ```{r}
-# INSERT CODE THAT LOOPS THROUGH COMBOS
+
+tune_res_list <- list()
+for (i in seq_len(length(full_params_list))) {
+  
+  spec_df <- full_params_list[[i]]
+  
+  # build model
+  mod <- dismo::gbm.step(
+    data = bike_df,
+    
+    # colnames of predictors
+    gbm.x = predictors_tomod,
+    
+    # colname of response
+    gbm.y = "count",
+    
+    # mod specs
+    family = "poisson",
+    tree.complexity = spec_df$tree_complexity,
+    learning.rate = spec_df$learning_rate,
+    bag.fraction = spec_df$bag_fraction,
+    max.trees = 2000, # max 2000 trees to avoid long run times in loop
+    
+    # prevent long messages and plots while running
+    silent = TRUE,
+    plot.main = FALSE
+  )
+  
+  # retrieve performance specs
+  spec_df$ntrees <- mod$n.trees
+  spec_df$dev_mean <- mod$cv.statistics$deviance.mean
+  spec_df$dev_se <- mod$cv.statistics$deviance.se
+  
+  tune_res_list[[i]] <- spec_df
+  
+}
+
+tune_df <- dplyr::bind_rows(tune_res_list)
+
+tune_df |>
+  dplyr::arrange(dev_mean)
+
 ```
 
 
