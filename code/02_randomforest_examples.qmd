@@ -348,6 +348,52 @@ ggplot(pd_df, aes(x = x, y = y)) +
 
 ```
 
+### Exploring Individual Conditional Expectation
+
+A way of looking for potential interaction effects is to use Individual Conditional Expectation (ICE) curves. PDP curves can hide heterogeneity, but ICE curves will show how the predictions vary across each observation when the predictor is varied. We can access these using the `pdp` package.
+
+```{r}
+# Get ICE from pdp
+blueICE <- pdp::partial(redfish_mod_final, pred.var = "bluefish_index", ice = TRUE)
+
+# Plot ICE curves
+blueICE |> 
+  ggplot(aes(x = bluefish_index, y = yhat)) +
+    geom_line(aes(group = yhat.id), alpha = 0.75, color = "gray10") +
+    geom_rug(
+      data = rug_df, 
+      aes(x = x), 
+      sides = "b", alpha = 0.3,inherit.aes = FALSE
+    ) +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+```
+
+We can evaluate these curves based on how parallel the lines are - if there is a lot of crossing over then that would suggest some non-linear interaction effects. In the curves above, there is a bit of crossing on the left hand side, while much of the remaining lines are parallel. When they're parallel, that means that the PDP is a good summary of the marginal effect.
+
+What happens if we overlay the mean of each of these ICE curves on the plot?
+
+```{r}
+# Plot ICE curves with mean overlay
+blueICE |> 
+  ggplot(aes(x = bluefish_index, y = yhat)) +
+    geom_line(aes(group = yhat.id), alpha = 0.75, color = "gray10") +
+    geom_line( 
+      data = blueICE |> group_by(bluefish_index) |> summarize(yhat = mean(yhat)),
+      linewidth = 1.5,
+      color = "red"
+    ) +
+    geom_rug(
+      data = rug_df, 
+      aes(x = x), 
+      sides = "b", alpha = 0.3,inherit.aes = FALSE
+    ) +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+```
+
+Look familiar? Then we get the PDP back that we drew above - which makes sense because that's how we calculate the PDP.
+
 ### Viewing the interaction in more than one dimension
 
 We can also explore the partial dependence in more than one dimension, as explored above, to explore relationships among predictors with the response. As mentioned earlier, it is important to remain aware of the underlying distribution in the training data when interpreting these plots. Additionally, thoughtful consideration should be made when trying to interpret correlated variables.
