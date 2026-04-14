@@ -30,6 +30,8 @@ Funding for this workshop was provided by the Minnesota Environment and Natural 
   - `shapviz`
   - `parallel`
   - `corrplot`
+  - `pdp`
+  - `interp`
   
 <!--
   ```

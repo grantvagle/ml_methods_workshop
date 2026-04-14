@@ -15,6 +15,8 @@ library(randomForest)
 library(Metrics)
 library(dplyr)
 library(ggplot2)
+library(pdp)
+library(interp)
 
 set.seed(22)
 ```
@@ -130,6 +132,7 @@ Random forests have a few hyper-parameters that you can tune:
 
 ::: callout-note
 ## Got it in the bag?
+
 Can you think of how to use `mtry` to adjust the `randomForest()` call above to instead utilize the *bagging* algorithm?
 :::
 
@@ -205,7 +208,7 @@ We'll look into the model in two ways. First, we'll examine the **variable impor
 
 For random forests, variable importance is calculated with the following metrics:
 
--   For regression, 
+-   For regression,
     -   **increase in node purity** when the variable is included
     -   **increase MSE** when the variable is permuted
 -   For classification,
@@ -270,6 +273,7 @@ Since our model has only three variables, we include a couple examples with more
 
 ::: callout-note
 ## Getting in tune
+
 Now that you have a relative ordering of parameter importance, it is possible to use this information to perform backward or forward model selection using the rankings and adjusting the $p$ predictors considered in the model. Can you think of how to extend the code to explore the ranked combinations of $p$, along with differing values of $m$ as done earlier?
 
 As a word of caution, recalculating variable importance at each step of forward or backward selection could lead to severe overfitting.
