@@ -195,6 +195,11 @@ data.frame(
 
 Definitely not the best, but also not the worst. Our model is only capturing 38% of the variation in abundance, so we shouldn't expect it to be much better than this.
 
+::: callout-note
+## Stretching a dollar?
+Can you think of other ways we could add predictors to this model based on only the covariates provided?
+:::
+
 ## Now let's dig into the model with **model interpretation**
 
 "Model interpretation" is a fancy way of saying that we'll try and see what the model is doing to make these predictions. In a linear regression, we would just look at the coefficients. But here, we have 500 different decision trees making our predictions, so we have to summarize the variable contributions from many places, and it gets more complicated.
@@ -490,5 +495,219 @@ plotly::plot_ly(
 `Plotly` lets you move the plot around to see the response from different angles, as well as providing roll-over and zoom options. Go ahead and try to make this work for the two other interactions!
 
 # Bonus example - looking closer at correlated variables
+
+Let's go back to our penguins data set.
+
+```{r}
+# Bring the penguins data set back in to memory
+penguins <- penguins |>
+  # remove NAs to avoid downstream issues
+  tidyr::drop_na()
+head(penguins)
+str(penguins)
+```
+
+For this example we won't worry about splitting out a training and test set. First we'll fit a similar mass response model as was done earlier with the CART algorithm, this time using a random forest.
+
+```{r}
+( mod_mass_rf <- randomForest::randomForest(
+  body_mass ~ flipper_len + bill_dep,
+  data = penguins,
+  ntree = 2000,
+  importance = TRUE
+) )
+```
+
+To start with we'll look at the variable importance for our two responses.
+
+```{r}
+# plot them
+randomForest::varImpPlot(mod_mass_rf)
+```
+
+And we see that `flipper_len` is the higher rated predictor. If we want to evaluate the the marginal effect, we can make and ICE/PDP plot as before.
+
+```{r}
+# Create rug
+rug_flipper_df <- penguins |>
+  dplyr::select(flipper_len, bill_dep) |>
+  tidyr::pivot_longer(
+    cols = dplyr::everything(),
+    names_to  = "variable",
+    values_to = "x"
+  )
+
+# Get ICE from pdp
+fipperICE <- pdp::partial(mod_mass_rf, pred.var = "flipper_len", ice = TRUE)
+
+# Plot ICE curves with PDP overlay
+fipperICE |> 
+  ggplot(aes(x = flipper_len, y = yhat)) +
+    geom_line(aes(group = yhat.id), alpha = 0.75, color = "gray10") +
+    geom_line( 
+      data = fipperICE |> group_by(flipper_len) |> summarize(yhat = mean(yhat)),
+      linewidth = 1.5,
+      color = "red"
+    ) +
+    geom_rug(
+      data = rug_flipper_df |> filter(variable == "flipper_len"), 
+      aes(x = x), 
+      sides = "b", alpha = 0.3,inherit.aes = FALSE
+    ) +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+```
+
+Not too much for crossing over in terms of the ICE plots, and we see a fair bit of change in the response relative to the flipper length predictor.
+
+Now let's assume that each of these `flipper_len` entries actually came from each penguins *left* flipper. Would would happen if we had entries for the *right* flipper length that we added to the model? To consider that, we'll simulate synthetic `right_flipper_len` entries that are highly correlated with the original `flipper_len` readings. For this we will assume correlation in only one direction (with the associated flipper), and that penguins are like people in that each of their limbs are symmetrical and of slightly different lengths. We'll use `rnorm()` to sprinkle in some minor differences in flipper estimates.
+
+```{r}
+# Simulate right flipper for each penguin
+penguins_new <- penguins |> 
+  mutate(
+    right_flipper_len = rnorm(n = n(), mean = flipper_len, sd = 0.01)
+  )
+```
+
+What happens if we look at the correlation?
+
+```{r}
+# Look at correlation between flipper lengths
+penguins_new |> select(contains("flipper")) |> cor()
+```
+
+These entries are (as expected) very correlated! What happens if we put them together in the model?
+
+```{r}
+( mod_mass_rf2 <- randomForest::randomForest(
+  body_mass ~ flipper_len + right_flipper_len + bill_dep,
+  data = penguins_new,
+  ntree = 2000,
+  importance = TRUE
+) )
+```
+
+We see that our pseudo-$R^2$ is pretty similar to the model without a right flipper. What happens if we look at the standard importance plot?
+
+```{r}
+# plot them
+randomForest::varImpPlot(mod_mass_rf2)
+```
+
+We see the order changes between the two metrics! The change in MSE is supposed to be more robust, but these differences are very noticable! In this case, the `%IncMSE` is coming in standardized (or z-scored) - what happens if we don't scale these estimates?
+
+```{r}
+# plot them without standardization
+randomForest::varImpPlot(mod_mass_rf2, scale = FALSE)
+```
+
+We now get the same order in our predictors between the two methods. This is because the standard deviations of these estimates are relatively high:
+
+```{r}
+# View importance SDs for model 1
+mod_mass_rf$importanceSD
+
+# View importance SDs for model 2
+mod_mass_rf2$importanceSD
+```
+
+This is because both variables contain almost exactly the same information. There are essentially an infinite number of combinations to the two flipper lengths that can produce the same predictions, so knowing one value means the assumption of the other must be compensatatory.
+
+What happens when we try to evaluate the PDP for this new model?
+
+```{r}
+# Get ICE from pdp
+fipperICE2 <- pdp::partial(mod_mass_rf2, pred.var = "flipper_len", ice = TRUE)
+
+# Plot ICE curves with PDP overlay
+fipperICE2 |> 
+  ggplot(aes(x = flipper_len, y = yhat)) +
+    geom_line(aes(group = yhat.id), alpha = 0.75, color = "gray10") +
+    geom_line( 
+      data = fipperICE2 |> group_by(flipper_len) |> summarize(yhat = mean(yhat)),
+      linewidth = 1.5,
+      color = "red"
+    ) +
+    geom_rug(
+      data = rug_flipper_df |> filter(variable == "flipper_len"), 
+      aes(x = x), 
+      sides = "b", alpha = 0.3,inherit.aes = FALSE
+    ) +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+```
+
+And we see that the range of the response decreases relative to a model that is fit without both flippers and averaging over a different value. 
+
+```{r}
+# Get ICE from pdp
+fipperICE3 <- pdp::partial(mod_mass_rf2, pred.var = "right_flipper_len", ice = TRUE)
+
+# Plot ICE curves with PDP overlay
+fipperICE3 |> 
+  ggplot(aes(x = right_flipper_len, y = yhat)) +
+    geom_line(aes(group = yhat.id), alpha = 0.75, color = "gray10") +
+    geom_line( 
+      data = fipperICE3 |> group_by(right_flipper_len) |> summarize(yhat = mean(yhat)),
+      linewidth = 1.5,
+      color = "red"
+    ) +
+    geom_rug(
+      data = rug_flipper_df |> filter(variable == "flipper_len"), 
+      aes(x = x), 
+      sides = "b", alpha = 0.3,inherit.aes = FALSE
+    ) +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+```
+
+And our PDP/ICE plots look quite similar. And this makes sense, because a PDP is marginalizing over all of the other variables - and when we do this with this model structure we have a second variable that is telling us the same thing!
+
+Let's look a little closer at the two way relationship between our flipper length variables.
+
+```{r}
+# 2D heat map - chull here is limiting fit to a single point
+pdp::partial(mod_mass_rf2, pred.var = c("flipper_len", "right_flipper_len")) |> 
+  ggplot(aes(x = flipper_len, y = right_flipper_len, fill = yhat)) +
+    geom_tile() +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+
+# Get pdp values for 3D
+flippers_pdp <- pdp::partial(mod_mass_rf2, pred.var = c("flipper_len", "right_flipper_len"))
+
+# Interpolate on to grid
+penguin_response_surface <- interp::interp(
+  x = flippers_pdp$flipper_len,
+  y = flippers_pdp$right_flipper_len,
+  z = flippers_pdp$yhat,
+  linear = TRUE
+)
+
+# Make interactive 3d surface of 2 way pdp
+plotly::plot_ly(
+  x = penguin_response_surface$x, 
+  y = penguin_response_surface$y, 
+  z = penguin_response_surface$z,
+  colors = c("blue", "grey", "red"),
+  type = "surface"
+) |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(title = "Left flipper"),
+      yaxis = list(title = "Right flipper"),
+      zaxis = list(title = "Partial Dependence")
+    )
+  )
+```
+
+And we see essentially a symmetrical surface. What does this mean for prediction?
+
+```{r}
+# Add prediction
+```
+
+This again goes back to what question we are asking. Having both of these in the model for prediction is fine, but the model will not be able to confidently tell you which is more important.
 
 # Bonus example #2 - stratified sampling to handle repeated measures
