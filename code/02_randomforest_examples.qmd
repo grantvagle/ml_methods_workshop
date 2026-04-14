@@ -129,6 +129,7 @@ Random forests have a few hyper-parameters that you can tune:
     -   **maxnodes**: max number of terminal nodes for a tree; operates secondary to nodesize
 
 ::: callout-note
+## Got it in the bag?
 Can you think of how to use `mtry` to adjust the `randomForest()` call above to instead utilize the *bagging* algorithm?
 :::
 
@@ -268,7 +269,8 @@ Since our model has only three variables, we include a couple examples with more
 ![Example variable importance plot (Vagle et al. 2024)](images/varimp_ex_vagle.png){width="40%" fig-align="left"}
 
 ::: callout-note
-Now that you have a relative ordering of parameter importance, it is possible to use this information to perform backward or forward model selection using the rankings and adjusting the $p$ predictors considered in the model. Can you think of how to extend the code to explore the ranked combinations of $p$ with differing values of $m$?
+## Getting in tune
+Now that you have a relative ordering of parameter importance, it is possible to use this information to perform backward or forward model selection using the rankings and adjusting the $p$ predictors considered in the model. Can you think of how to extend the code to explore the ranked combinations of $p$, along with differing values of $m$ as done earlier?
 
 As a word of caution, recalculating variable importance at each step of forward or backward selection could lead to severe overfitting.
 :::
@@ -345,6 +347,101 @@ ggplot(pd_df, aes(x = x, y = y)) +
   theme_minimal()
 
 ```
+
+### Viewing the interaction in more than one dimension
+
+We can also explore the partial dependence in more than one dimension, as explored above, to explore relationships among predictors with the response. As mentioned earlier, it is important to remain aware of the underlying distribution in the training data when interpreting these plots. Additionally, thoughtful consideration should be made when trying to interpret correlated variables.
+
+To start, we'll use the `pdp` package to generate our response surface for our predictor interactions of choice and make heat maps. We'll also set the option `chull=TRUE` so that we are only showing the distributions included in the training data.
+
+```{r}
+pdp::partial(redfish_mod_final, pred.var = c("bluefish_index", "summer_temp_c"), chull = TRUE) |> 
+  ggplot(aes(x = bluefish_index, y = summer_temp_c, fill = yhat)) +
+    geom_tile() +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+
+pdp::partial(redfish_mod_final, pred.var = c("bluefish_index", "spring_temp_c"), chull = TRUE) |> 
+  ggplot(aes(x = bluefish_index, y = spring_temp_c, fill = yhat)) +
+    geom_tile() +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+
+pdp::partial(redfish_mod_final, pred.var = c("summer_temp_c", "spring_temp_c"), chull = TRUE) |> 
+  ggplot(aes(x = summer_temp_c, y = spring_temp_c, fill = yhat)) +
+    geom_tile() +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal()
+```
+
+If we want to do that over all combinations of variables, we can also extend the code above.
+
+```{r}
+# Create list with pairs of variables
+pred_pairs <- combn(pred_vars, 2, simplify = FALSE)
+
+# some mor annoying-ly complicated code to make the `partialPlot()` function work for multiple variables
+pd_2waydf <- lapply(pred_pairs, function(v) {
+  pd_vals <- do.call(pdp::partial, list(
+    redfish_mod_final,
+    pred.var = v,
+    chull = TRUE
+  ))
+  data.frame(x = pd_vals[[v[1]]], y = pd_vals[[v[2]]], z = pd_vals$yhat, var1 = v[1], var2 = v[2])
+}) |>
+  dplyr::bind_rows()
+
+pd_2waydf |> 
+  ggplot(aes(x = x, y = y, fill = z)) +
+    geom_tile() +
+    facet_grid(cols = vars(var1), rows = vars(var2), scales = "free") +
+    scale_fill_viridis_c("Partial Dependence") +
+    theme_minimal() +
+    labs(x = "", y = "")
+```
+
+We can also make a basic 3D representation with the `plotPartial()` function that comes with the `pdp` package.
+
+```{r}
+pdp::plotPartial(
+  pdp::partial(redfish_mod_final, pred.var = c("bluefish_index", "summer_temp_c"), chull = TRUE),
+  levelplot = FALSE, 
+  zlab = "yhat"
+)
+```
+
+These figures can be hard a bit hard to work with out of the box. If we'd like to put them in a more useful 3D visualization tool, such as `plotly`, we need to take the pdp output and interpolate it onto a grid. We can use the `interp` package to do just that!
+
+```{r}
+# Get pdp values
+bluesummer_pdp <- pdp::partial(redfish_mod_final, pred.var = c("bluefish_index", "summer_temp_c"))
+
+# Interpolate on to grid
+response_surface <- interp::interp(
+  x = bluesummer_pdp$bluefish_index,
+  y = bluesummer_pdp$summer_temp_c,
+  z = bluesummer_pdp$yhat,
+  linear = TRUE
+)
+
+# Make interactive 3d surface of 2 way pdp
+plotly::plot_ly(
+  x = response_surface$x, 
+  y = response_surface$y, 
+  z = response_surface$z,
+  colors = c("blue", "grey", "red"),
+  type = "surface"
+) |> 
+  plotly::layout(
+    scene = list(
+      xaxis = list(title = "Bluefish index"),
+      yaxis = list(title = "Summer Temp (C)"),
+      zaxis = list(title = "Partial Dependence")
+    )
+  )
+```
+
+`Plotly` lets you move the plot around to see the response from different angles, as well as providing roll-over and zoom options. Go ahead and try to make this work for the two other interactions!
 
 # Bonus example - looking closer at correlated variables
 
