@@ -199,7 +199,7 @@ data.frame(
 Definitely not the best, but also not the worst. Our model is only capturing 38% of the variation in abundance, so we shouldn't expect it to be much better than this.
 
 ::: callout-note
-## Stretching a dollar?
+## Getting more bang for your buck (or fish)
 Can you think of other ways we could add predictors to this model based on only the covariates provided?
 :::
 
@@ -215,7 +215,7 @@ For random forests, variable importance is calculated with the following metrics
 
 -   For regression,
     -   **increase in node purity** when the variable is included
-    -   **increase MSE** when the variable is permuted
+    -   **increase in % MSE** when the variable is permuted
 -   For classification,
     -   **mean decrease in accuracy** if the variable was not included
     -   **mean decrease in Gini index** if the variable was not included
@@ -281,7 +281,7 @@ Since our model has only three variables, we include a couple examples with more
 
 Now that you have a relative ordering of parameter importance, it is possible to use this information to perform backward or forward model selection using the rankings and adjusting the $p$ predictors considered in the model. Can you think of how to extend the code to explore the ranked combinations of $p$, along with differing values of $m$ as done earlier?
 
-As a word of caution, recalculating variable importance at each step of forward or backward selection could lead to severe overfitting.
+As a word of caution, recalculating variable importance at each step of forward or backward selection could lead to severe overfitting ([Díaz-Uriarte and Alvarez de Andrés, 2006](https://link.springer.com/article/10.1186/1471-2105-7-3)).
 :::
 
 ### Partial dependence plots
@@ -403,11 +403,13 @@ blueICE |>
 
 Look familiar? Then we get the PDP back that we drew above - which makes sense because that's how we calculate the PDP.
 
+Feel free to explore the ICE curves of the other variables.
+
 ### Viewing the interaction in more than one dimension
 
 We can also explore the partial dependence in more than one dimension, as explored above, to explore relationships among predictors with the response. As mentioned earlier, it is important to remain aware of the underlying distribution in the training data when interpreting these plots. Additionally, thoughtful consideration should be made when trying to interpret correlated variables.
 
-To start, we'll use the `pdp` package to generate our response surface for our predictor interactions of choice and make heat maps. We'll also set the option `chull=TRUE` so that we are only showing the distributions included in the training data.
+To start, we'll use the `pdp` package to generate our response surface for our predictor interactions of choice and make heat maps. We'll also set the option `chull=TRUE` here so that we are only showing the distributions included in the training data.
 
 ```{r}
 pdp::partial(redfish_mod_final, pred.var = c("bluefish_index", "summer_temp_c"), chull = TRUE) |> 
@@ -465,7 +467,7 @@ pdp::plotPartial(
 )
 ```
 
-These figures can be hard a bit hard to work with out of the box. If we'd like to put them in a more useful 3D visualization tool, such as `plotly`, we need to take the pdp output and interpolate it onto a grid. We can use the `interp` package to do just that!
+These figures can be hard a bit hard to work with and interpret only using this internal function. If we'd like to put them in a more useful 3D visualization tool, such as `plotly`, we need to take the pdp output and interpolate it onto a grid. We can use the `interp` package to do just that!
 
 ```{r}
 # Get pdp values
@@ -498,6 +500,8 @@ plotly::plot_ly(
 
 `Plotly` lets you move the plot around to see the response from different angles, as well as providing roll-over and zoom options. Go ahead and try to make this work for the two other interactions!
 
+Try making them for the other interactions and see how your interpretation changes from what you just evaluated using the heat maps.
+
 # Bonus example - looking closer at correlated variables
 
 Let's go back to our penguins data set.
@@ -511,12 +515,37 @@ head(penguins)
 str(penguins)
 ```
 
-For this example we won't worry about splitting out a training and test set. First we'll fit a similar mass response model as was done earlier with the CART algorithm, this time using a random forest.
+For this example we'll again split out a training and test set. 
+
+```{r}
+nrow_train <- ceiling(0.8 * nrow(penguins)) # ceiling used to make it an integer
+
+set.seed(442) # set a seed for consistent splits if re-run
+
+penguins_train <- penguins |>
+  # make row number a column to use as id
+  dplyr::mutate(rownum = dplyr::row_number()) |>
+  # slice random sample
+  dplyr::slice_sample(n = nrow_train)
+
+str(penguins_train)
+  
+
+penguins_test <- penguins |>
+  # make row number a column to use as id
+  dplyr::mutate(rownum = dplyr::row_number()) |>
+  # test set is what is left, ids not found in train
+  dplyr::filter(!rownum %in% penguins_train$rownum)
+
+str(penguins_test)
+```
+
+First we'll fit a similar mass response model as was done earlier with the CART algorithm, this time using a random forest.
 
 ```{r}
 ( mod_mass_rf <- randomForest::randomForest(
   body_mass ~ flipper_len + bill_dep,
-  data = penguins,
+  data = penguins_train,
   ntree = 2000,
   importance = TRUE
 ) )
@@ -533,7 +562,7 @@ And we see that `flipper_len` is the higher rated predictor. If we want to evalu
 
 ```{r}
 # Create rug
-rug_flipper_df <- penguins |>
+rug_flipper_df <- penguins_train |>
   dplyr::select(flipper_len, bill_dep) |>
   tidyr::pivot_longer(
     cols = dplyr::everything(),
@@ -568,9 +597,9 @@ Now let's assume that each of these `flipper_len` entries actually came from eac
 
 ```{r}
 # Simulate right flipper for each penguin
-penguins_new <- penguins |> 
+penguins_train_new <- penguins_train |> 
   mutate(
-    right_flipper_len = rnorm(n = n(), mean = flipper_len, sd = 0.01)
+    right_flipper_len = rnorm(n = n(), mean = flipper_len, sd = flipper_len * 0.0001)
   )
 ```
 
@@ -578,7 +607,7 @@ What happens if we look at the correlation?
 
 ```{r}
 # Look at correlation between flipper lengths
-penguins_new |> select(contains("flipper")) |> cor()
+penguins_train_new |> select(contains("flipper")) |> cor()
 ```
 
 These entries are (as expected) very correlated! What happens if we put them together in the model?
@@ -586,7 +615,7 @@ These entries are (as expected) very correlated! What happens if we put them tog
 ```{r}
 ( mod_mass_rf2 <- randomForest::randomForest(
   body_mass ~ flipper_len + right_flipper_len + bill_dep,
-  data = penguins_new,
+  data = penguins_train_new,
   ntree = 2000,
   importance = TRUE
 ) )
@@ -616,7 +645,13 @@ mod_mass_rf$importanceSD
 mod_mass_rf2$importanceSD
 ```
 
-This is because both variables contain almost exactly the same information. There are essentially an infinite number of combinations to the two flipper lengths that can produce the same predictions, so knowing one value means the assumption of the other must be compensatatory.
+This is because both variables contain almost exactly the same information! There are essentially an infinite number of combinations to the two flipper lengths that can produce the same predictions, so knowing one value means the information about the other must be compensatory and we become less sure which is more important.
+
+::: callout-note
+## To standardize or not to standardize
+
+Note: Stobl et al. ([2008](https://link.springer.com/article/10.1186/1471-2105-9-307)) note that the raw importance has better statistical properties than the scaled version, and also propose an improtance evaluation procedure better suited for correlated variables than what is included in the `randomForest` package that we're exploring here.
+:::
 
 What happens when we try to evaluate the PDP for this new model?
 
@@ -671,13 +706,6 @@ And our PDP/ICE plots look quite similar. And this makes sense, because a PDP is
 Let's look a little closer at the two way relationship between our flipper length variables.
 
 ```{r}
-# 2D heat map - chull here is limiting fit to a single point
-pdp::partial(mod_mass_rf2, pred.var = c("flipper_len", "right_flipper_len")) |> 
-  ggplot(aes(x = flipper_len, y = right_flipper_len, fill = yhat)) +
-    geom_tile() +
-    scale_fill_viridis_c("Partial dependence") +
-    theme_minimal()
-
 # Get pdp values for 3D
 flippers_pdp <- pdp::partial(mod_mass_rf2, pred.var = c("flipper_len", "right_flipper_len"))
 
@@ -688,6 +716,18 @@ penguin_response_surface <- interp::interp(
   z = flippers_pdp$yhat,
   linear = TRUE
 )
+
+# 2D heat map - chull here is limiting fit to a single point
+tidyr::expand_grid(
+  x = penguin_response_surface$x,
+  y = penguin_response_surface$y
+) |> 
+  mutate(z = as.vector(penguin_response_surface$z)) |> 
+  ggplot(aes(x = x, y = y, fill = z)) +
+    geom_tile() +
+    scale_fill_viridis_c("Partial dependence") +
+    theme_minimal() +
+    labs(x = "Left flipper", y = "Right flipper")
 
 # Make interactive 3d surface of 2 way pdp
 plotly::plot_ly(
@@ -706,12 +746,54 @@ plotly::plot_ly(
   )
 ```
 
-And we see essentially a symmetrical surface. What does this mean for prediction?
+And we see essentially a symmetrical surface between the two flipper variables showing us that both variables are basically telling us the same thing.
+
+What does this mean for prediction? For this we have to simulate right flipper lengths on our test set.
 
 ```{r}
-# Add prediction
+# Simulate right flipper for each penguin in test set
+penguins_test_new <- penguins_test |> 
+  mutate(
+    right_flipper_len = rnorm(n = n(), mean = flipper_len, sd = flipper_len * 0.0001)
+  )
 ```
 
-This again goes back to what question we are asking. Having both of these in the model for prediction is fine, but the model will not be able to confidently tell you which is more important.
+And now we can predict using both flippers data.
+
+```{r}
+penguins_test_new$mod1pred <- predict(mod_mass_rf, penguins_test_new)
+penguins_test_new$mod2pred <- predict(mod_mass_rf2, penguins_test_new)
+
+penguins_test_new |> 
+  ggplot(aes(x = mod1pred, y = mod2pred)) +
+    geom_point() +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+    theme_minimal()
+```
+
+And we can see that these models essentially predict the same values. And we can compare the error between the two approaches:
+
+```{r}
+tibble(
+  Model = c( "One Flipper", "Two Flipper" ),
+  RMSE = c(
+    Metrics::rmse(
+      actual = penguins_test_new$body_mass, 
+      predicted = penguins_test_new$mod2pred
+    ),
+     Metrics::rmse(
+      actual = penguins_test_new$body_mass, 
+      predicted = penguins_test_new$mod1pred
+    )
+  )
+) |> 
+  mutate( `RMSE CV` = RMSE / mean(penguins_test_new$body_mass))
+```
+
+And we can see in this example we actually improve the predictive ability of the model by having these two correlated variables.
+
+This again goes back to what question we are asking. Having both of these in the model for prediction is fine, but the model will not be able to confidently tell you which of the two flippers is more important. Additionally, if this were a more complicated model, it's also possible that these highly correlated predictors could end up with overstated importance due to an inability of this marginal univariate importance evaluation approach to tease out differences among the highly correlated variables. This is something to be aware of, and proper thought should be placed on which variable is preferentially included in the model if interpretation is more important to your goals than prediction.
+
+Try working back through this exercise, but instead applying a bagging algorithm.
 
 # Bonus example #2 - stratified sampling to handle repeated measures
