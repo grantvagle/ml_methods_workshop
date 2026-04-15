@@ -198,6 +198,8 @@ data.frame(
 
 Definitely not the best, but also not the worst. Our model is only capturing 38% of the variation in abundance, so we shouldn't expect it to be much better than this.
 
+Try playing with `nodesize` option in the random forest call to see if you can improve the predictive performance.
+
 ::: callout-note
 ## Getting more bang for your buck (or fish)
 Can you think of other ways we could add predictors to this model based on only the covariates provided?
@@ -277,12 +279,20 @@ Since our model has only three variables, we include a couple examples with more
 ![Example variable importance plot (Vagle et al. 2024)](images/varimp_ex_vagle.png){width="40%" fig-align="left"}
 
 ::: callout-note
+## Are these forests random?
+
+Given the bootstrap procedure introduces randomness to this process, try rerunning the importance functions above and see if the values change. Depending on your dataset, it's possible that the relative ordering of the variables may change. If this is a concern with your dataset, you can create multiple forests and evaluate summary statistics of the importance measure.
+:::
+
+::: callout-note
 ## Getting in tune
 
 Now that you have a relative ordering of parameter importance, it is possible to use this information to perform backward or forward model selection using the rankings and adjusting the $p$ predictors considered in the model. Can you think of how to extend the code to explore the ranked combinations of $p$, along with differing values of $m$ as done earlier?
 
 As a word of caution, recalculating variable importance at each step of forward or backward selection could lead to severe overfitting ([Díaz-Uriarte and Alvarez de Andrés, 2006](https://link.springer.com/article/10.1186/1471-2105-7-3)).
 :::
+
+
 
 ### Partial dependence plots
 
@@ -794,6 +804,16 @@ And we can see in this example we actually improve the predictive ability of the
 
 This again goes back to what question we are asking. Having both of these in the model for prediction is fine, but the model will not be able to confidently tell you which of the two flippers is more important. Additionally, if this were a more complicated model, it's also possible that these highly correlated predictors could end up with overstated importance due to an inability of this marginal univariate importance evaluation approach to tease out differences among the highly correlated variables. This is something to be aware of, and proper thought should be placed on which variable is preferentially included in the model if interpretation is more important to your goals than prediction.
 
-Try working back through this exercise, but instead applying a bagging algorithm.
+Try working back through this exercise, but instead applying a bagging algorithm and see if it behaves the same.
 
 # Bonus example #2 - stratified sampling to handle repeated measures
+
+Imagine that Superior Red Lake of the Woods is just one of the many lakes with data available in the Greater Minnisconsinigan region across a 5-year period. During these 5 years, so lakes are sampled multiple time while other lakes only have a single survey. If you'd like for your trees to have balanced representation from each lake in the bootstrap samples, we can use the `strata` option in the `randomForest()` call. `strata` expects a factor variable that you want represented, and for this example we will define a vector with a `sampsize` of 1 for each strata so that each lake will only be included once in each tree.
+
+::: callout-note
+## You gotta keep em separated
+
+Note: we pass a vector of 1's to `sampsize` here instead of just a single value. Depending on your data, you might want to define different sample sizes per strata - which you would do in the `sampsize` vector. Generally this is used for classification problems, but here we have a repeated measures case where this can also apply.
+:::
+
+To start with we'll read in the data
