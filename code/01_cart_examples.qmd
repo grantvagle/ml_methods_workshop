@@ -66,16 +66,18 @@ Another possibly unfamiliar practice is the `::` notation. This allows a user to
 
 ![Artwork by @allison_horst](images/lter_penguins.png)
 
-In this example, we'll use the `penguins` dataset to build a couple of example models. 
+In this example, we'll use the `penguins` dataset to build a couple of example models.
 
-<details><summary>If you're not using an updated version of R: (need 4.5.0+)</summary> you can either update R to the newest version, or install and load the `palmerpenguins` package using this code:
+::: {.callout-note collapse="true" title="If you're not using an updated version of R: (need 4.5.0+)"}
+
+If you're not using an updated version of R: (need 4.5.0+), you can either update R to the newest version (recommended), or install and load the `palmerpenguins` package using this code:
 
 ```{r}
 #| eval: false # change eval to true if you need this step and want to render the file
 install.packages("palmerpenguins")
 library(palmerpenguins)
 ```
-</details>
+:::
 
 ## Read in penguins data
 
