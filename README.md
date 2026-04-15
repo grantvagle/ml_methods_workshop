@@ -6,6 +6,8 @@ The workshop was developed by Grant Vagle, Jeremiah Shrovnal, and Lynn Waterhous
 
 Funding for this workshop was provided by the Minnesota Environment and Natural Resources Trust Fund as recommended by the Legislative-Citizen Commission on Minnesota Resources (LCCMR).
 
+![](code/images/enrtf_logo.jpg){width=15% align=right}
+
 ## Workshop outline
 
 1. What is machine learning? This workshop will focus on supervised machine learning
