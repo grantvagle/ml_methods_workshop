@@ -7,6 +7,19 @@ number-depth: 3
 toc: true
 ---
 
+#### Installing and loading packages
+
+The `install_wkshp_packages.R` script will check which packages need to be installed, and install them. So we use `source()` here to make sure they're all installed.
+
+```{r}
+#| label: install packages
+#| echo: true
+#| results: hide
+source(here::here("code", "install_wkshp_packages.R"))
+```
+
+Then we'll load the packages for this file using `library()`.
+
 ```{r}
 #| label: load_packages
 #| echo: true
@@ -174,8 +187,7 @@ rmse / mean(penguins_test$body_mass)
 
 ```
 
-**INSERT MORE CONTEXT **This last value is called the Coefficient of Variation of the RMSE
-
+**INSERT MORE CONTEXT** This last value is called the Coefficient of Variation of the RMSE
 
 ### Comparing test set performance to training set performance
 

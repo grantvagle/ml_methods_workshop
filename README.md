@@ -19,7 +19,7 @@ Funding for this workshop was provided by the Minnesota Environment and Natural 
 - Download and install R and RStudio: [https://posit.co/download/rstudio-desktop/](https://posit.co/download/rstudio-desktop/)
 - If you're not familiar with the `tidyverse` or code piping, take a look [here](https://bookdown.org/yih_huynh/Guide-to-R-Book/tidyverse.html). We'll be using the `tidyverse` for data manipulation a lot in the workshop.
 - Install packages if you don't already have them (all are available through CRAN via `install.packages()`):
-  - `dplyr`, `tidyr`, `forcats`, `ggplot2` (or install whole `tidyverse`)
+  - `tidyverse` (includes `dplyr`, `tidyr`, `forcats`, `ggplot2`)
   - `Metrics`
   - `dismo`
   - `gbm`
@@ -32,23 +32,10 @@ Funding for this workshop was provided by the Minnesota Environment and Natural 
   - `corrplot`
   - `pdp`
   - `interp`
+  - `here`
+  - `randomForest`
+  - `caret`
   
-<!--
-  ```
-install.packages("tidyverse")
-install.packages("Metrics")
-install.packages("dismo")
-install.packages("gbm")
-install.packages("caret")
-install.packages("rpart")
-install.packages("smotefamily")
-install.packages("fastshap")
-install.packages("shapviz")
-install.packages("parallel")
-install.packages("corrplot")
-```
--->
-
 - Take a look around this repository
 
 ## How to use this repository
