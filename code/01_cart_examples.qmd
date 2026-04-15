@@ -66,7 +66,16 @@ Another possibly unfamiliar practice is the `::` notation. This allows a user to
 
 ![Artwork by @allison_horst](images/lter_penguins.png)
 
-**INSERT** overview/outline of the examples in this section, and a penguin image obviously
+In this example, we'll use the `penguins` dataset to build a couple of example models. 
+
+<details><summary>If you're not using an updated version of R: (need 4.5.0+)</summary> you can either update R to the newest version, or install and load the `palmerpenguins` package using this code:
+
+```{r}
+#| eval: false # change eval to true if you need this step and want to render the file
+install.packages("palmerpenguins")
+library(palmerpenguins)
+```
+</details>
 
 ## Read in penguins data
 
@@ -187,7 +196,7 @@ rmse / mean(penguins_test$body_mass)
 
 ```
 
-**INSERT MORE CONTEXT** This last value is called the Coefficient of Variation of the RMSE
+This last value is called the Coefficient of Variation of the RMSE, which can allow for cross-dataset comparisons of model performance since it's scaled to the mean of the dependent variable.
 
 ### Comparing test set performance to training set performance
 
@@ -427,7 +436,7 @@ SMOTE augments datasets by over-sampling the minority class (bad recruitment in 
 
 It helps avoid over-fitting compared to replicating the rows in the minority class, and helps provide a balanced dataset for model training.
 
-One limitation is that it is limited to numeric variables because of the specifics of the nearest neighbors approach, so other approaches would need to be used with categorical predictors (**INSERT RESOURCE**).
+One limitation is that it is limited to numeric variables because of the specifics of the nearest neighbors approach in the `smotefamily` package we'll use, so other packages or approaches would need to be used with categorical predictors (e.g., [PDtoolkit](https://github.com/andrija-djurovic/PDtoolkit)).
 
 <sup>1</sup>Chawla et al. (2002). SMOTE: Synthetic Minority Over-sampling Technique. Journal of Artificial Intelligence Research 16: 321-357. <https://doi.org/10.1613/jair.953>
 
@@ -493,6 +502,12 @@ Metrics::accuracy(actual = redfish_test$recruitment,
 ```
 
 The accuracy and confusion matrix have changed with the SMOTE additional data rows! It's hard to tell if that's a meaningful improvement in this example, since adding the SMOTE adds complexity, but in some cases it can be extremely useful for getting models to converge and have useful predictions.
+
+::: callout-note
+## Thinking question
+
+We have an NA in the confusion matrix for the test set, and generally a small number of rows in each element of the confusion matrix too. Should we use SMOTE on the test set to match the training set augmentation? Or is it better to keep the test set un-altered for proper evaluation?
+:::
 
 ## Some more notes on unbalanced data - row weights
 
