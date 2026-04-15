@@ -21,20 +21,21 @@ library(fastshap)
 library(shapviz)
 library(caret)
 
-set.seed(24)
+set.seed(24) # for example consistency
 ```
 
 # Coding implementations of boosted regression trees (BRTs)
 
-`gbm` package
+We'll use the `gbm` package via the `dismo` package to build BRTs.
 
-`dismo`'s `gbm.step` built-in k-fold cross-validation that tunes the number of trees based on the others and calculates some performance metrics for the folds
+`dismo`'s `gbm.step` function has a convenient, built-in k-fold cross-validation that tunes the number of trees based on the learning rate, tree complexity, and bag fraction, and calculates some performance metrics for the folds.
 
-Also found in `caret` and other packages, with different syntax, etc.
+Boosted regression trees (and other boosted models) are also found in other packages (including `caret` and `parsnip`), but we'll stick with `dismo` and `gbm` here.
+
 
 # Building a BRT - bike sharing example
 
-For this example, we downloaded data from a Kaggle machine learning competition. The dataset contains data on daily bike sharing rental counts for 2011 and 2012 from the Capital Bikeshare system in Washington, D.C. Also included in the dataset are columns containing information on the seasonality (month, season), weather (temperature, precipitation), type of day (holiday, weekend, etc.). See the [dataset readme](../data/bike_share_readme.txt) for full column descriptions.
+For this example, we downloaded data from a Kaggle machine learning competition. The dataset contains data on daily bike sharing rental counts for 2011 and 2012 from the Capital Bikeshare system in Washington, D.C. Also included in the dataset are columns containing information on the seasonality (month, season), weather (temperature, precipitation), type of day (holiday, weekend, etc.). See the dataset readme (`/data/bike_share_readme.txt`) for full column descriptions.
 
 Our task is to predict bike rental counts based on the season, weather, and type of day.
 
@@ -149,7 +150,7 @@ bike_df |>
 
 ```
 
-These variable combination are inherently connected to one another, so for our purposes we'll use just the month (exclude season) and just the working day column (exclude weekday and holiday). Depending on your specific purpose, you could make these decisions differently, but we'll just go with this for now.
+These variable combinations are inherently connected to one another, so for our purposes we'll use just the month (exclude season) and just the working day column (exclude weekday and holiday). Depending on your specific purpose, you could make these decisions differently, but we'll just go with this for now.
 
 ```{r}
 cat_vars_toremove <- c("season", "weekday", "holiday")
@@ -174,7 +175,7 @@ Before we get to it, a reminder on the links between the hyperparameters in the 
 
 `bag_fraction` is the percent of the dataset that is considered for each tree (in each bag). For small datasets, should be kept larger. **Rule of thumb**: try 0.5, 0.625, and 0.75 for most datasets, if it's really small can go up to 0.9
 
-`number_of_trees` is the number of individual trees that are built. The `gbm.step` function in the `dismo` package automatically tunes this one based on the three others, and this one becomes secondary to the other three for most applications. **Rule of thumb**: Models that build at least 1000 trees tend to be best, but those that build at least 500 could be fine too. Models with many more trees (10,000+) may be unnecessarily restrained unless the dataset is very large.
+`number_of_trees` is the number of individual trees that are built. The `gbm.step` function in the `dismo` package automatically tunes this one based on the three others, and this one becomes secondary to the other three for most applications. **Rule of thumb**: Models that build at least 1000 trees tend to be best, but those that build at least 500 could be fine too. Models with many more trees (10,000+) may be unnecessarily restrained (and slow) unless the dataset is very large.
 
 The learning rate, tree complexity, and number of trees are highly inter-connected. A model that has a high learning rate with high tree complexity will overfit with just a small number of trees. Increasing the tree complexity should probably correspond with a decrease in the learning rate if you're seeking similar performance. In practice with grid-search tuning, we'll explore all the combinations, but some of those combinations are much less likely to be the best model because of these links.
 
@@ -188,7 +189,7 @@ Before the workshop, we used the second option to figure out a reasonable set of
 
 ### First, let's look at an example model run, without tuning
 
-So we don't get lost in the weeds before we start, let's build a preliminary model first, without tuning the hyper-parameters. This will let us see the code and details of the model building. In the next section, we'll use parallel processing to do grid-search tuning.
+So we don't get lost in the weeds before we start, let's build a preliminary model first, without tuning the hyper-parameters. This will let us see the code and details of the model building. In the next section, we'll do grid-search tuning.
 
 ```{r}
 #| label: model_ex
@@ -215,8 +216,7 @@ mod_ex <- dismo::gbm.step(
 
 mod_ex$cv.statistics
 ```
-
-**INSERT** description of the different components of the model output / object
+Feel free to explore the `mod_ex` model object a bit more on your own, or keep going to get into the model tuning.
 
 ### Model tuning for our example
 
@@ -254,7 +254,9 @@ full_params_list <-
 ```
 
 #### Parallel processing (optional; not run on render)
-<details><summary> Description and code for parallel processing </summary>
+
+::: {.callout-note collapse="true" title="Description and code for parallel processing"}
+
 Now, we'll use the following code to make the tuning process run in parallel. It gets a little less fun to read, so the steps are outlined here first.
 
 -   Determine the number of cores (parallel threads) you want to use
@@ -386,7 +388,7 @@ tune_df |>
   dplyr::arrange(dev_mean)
 
 ```
-</details>
+:::
 
 
 #### Model tuning in loop form
@@ -540,11 +542,13 @@ dismo::gbm.plot(gbm.object = bike_mod_full)
 
 # Deeper model interpretation via SHAP values
 
-SHapley Additive exPlanation (SHAP) values definitions and short theory on how they get calculated from model post-hoc
+SHapley Additive exPlanation (SHAP) values measure the contribution of each variable to the model's prediction, for *individual rows*.
 
-**INSERT SHAP DESCRIPTIONS**
+They tell us which variables drive (increase or decrease) an individual prediction of a model. By summarizing them in different ways (see below for some possibilities), we can identify how the variables are informing the model predictions at a fine scale. 
 
-Many R packages can calculate SHAP values, including those in the following table, with comparisons provided by Claude. Note that the method of SHAP value calculation/approximation varies among different approaches and that's beyond this workshop. There is also a [freely available book](https://christophm.github.io/interpretable-ml-book/) with a chapter focused on SHAP values, and a [book called "Interpreting machine learning methods with SHAP" by C. Molnar](https://christophmolnar.com/books/shap) that contains many more details (and python examples).
+"Shapley" and "SHAP" are sometimes used interchangeably, but SHAP values refers to the machine learning technique that calculates the Shapley values described in game theory. There is a [freely available book chapter](https://christophm.github.io/interpretable-ml-book/shapley.html) focused on SHAP values, and a [book called "Interpreting machine learning methods with SHAP" by C. Molnar](https://christophmolnar.com/books/shap) that contains many more details (and python examples).
+
+Many R packages can calculate SHAP values, including those in the following table, with comparisons provided by Claude. Note that the method of SHAP value calculation/approximation varies among different approaches and that's beyond this workshop. 
 
 | R package | [`iml`](https://christophm.github.io/iml/) | [`fastshap`](https://bgreenwell.github.io/fastshap/) | [`treeshap`](https://modeloriented.github.io/treeshap/) | [`shapr`](https://norskregnesentral.github.io/shapr/) |
 |---------------|---------------|---------------|---------------|---------------|
