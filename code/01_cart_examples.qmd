@@ -69,7 +69,6 @@ Another possibly unfamiliar practice is the `::` notation. This allows a user to
 In this example, we'll use the `penguins` dataset to build a couple of example models.
 
 ::: {.callout-note collapse="true" title="If you're not using an updated version of R: (need 4.5.0+)"}
-
 If you're not using an updated version of R: (need 4.5.0+), you can either update R to the newest version (recommended), or install and load the `palmerpenguins` package using this code:
 
 ```{r}
@@ -280,7 +279,7 @@ penguins_test |>
 
 Here, "accuracy" has a specific definition that means the proportion of rows classified correctly:
 
-$$ Accuracy = \frac{correct\_classifications}{total\_classifications} $$
+$$ Accuracy = \frac{\text{correct classifications}}{\text{total classifications}} $$
 
 That means from our confusion matrix above, we can calculate accuracy by:
 
