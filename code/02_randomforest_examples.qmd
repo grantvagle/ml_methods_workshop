@@ -458,6 +458,7 @@ pd_2waydf <- lapply(pred_pairs, function(v) {
 }) |>
   dplyr::bind_rows()
 
+# This facet may not plot correctly on everyone's computer
 pd_2waydf |> 
   ggplot(aes(x = x, y = y, fill = z)) +
     geom_tile() +
@@ -806,14 +807,111 @@ This again goes back to what question we are asking. Having both of these in the
 
 Try working back through this exercise, but instead applying a bagging algorithm and see if it behaves the same.
 
-# Bonus example #2 - stratified sampling to handle repeated measures
+# Bonus example #2 - working with spatial data
 
-Imagine that Superior Red Lake of the Woods is just one of the many lakes with data available in the Greater Minnisconsinigan region across a 5-year period. During these 5 years, so lakes are sampled multiple time while other lakes only have a single survey. If you'd like for your trees to have balanced representation from each lake in the bootstrap samples, we can use the `strata` option in the `randomForest()` call. `strata` expects a factor variable that you want represented, and for this example we will define a vector with a `sampsize` of 1 for each strata so that each lake will only be included once in each tree.
+Imagine that Superior Red Lake of the Woods is just one of the many lakes with data available in the Greater Minnisconsinigan region across a 5-year period. Given that these data have a spatial structure, we'll want to make sure we evaluate the spatial residuals to make sure the model is not over or under prediction in any region.
+
+To start with we'll read in the data for all of the Minnisconigan lakes:
+
+```{r}
+Minnisconsinigan_dat <- read.csv(here::here("data", "Minnisconsinigan_dat.csv"))
+str(Minnisconsinigan_dat)
+```
+
+Here we information on a bluefish index, along with some other lake level covariates for each indexed `Lake` ID. We can plot what our `Bluefish_index` to see what it looks like over space and get a better idea of what we're working with.
+
+```{r}
+Minnisconsinigan_dat |> 
+  ggplot(aes(x = X, y = Y, color = Bluefish_index)) +
+    geom_point() +
+    scale_color_viridis_c(option = "C") +
+    theme_minimal()
+```
+
+
+```{r}
+( Minnisconsinigan_rf <- randomForest::randomForest(
+    Bluefish_index ~ ., # the . implies everything else in the dataset
+    data = Minnisconsinigan_dat |>
+      # remove the un-used variables
+      dplyr::select(-dplyr::any_of(c("lake", "X", "Y"))),
+    ntree = 5000,
+    importance = TRUE
+  ) )
+```
+
+We see that this Bluefish index looks to be hard to predict with the information we have. We'll leave it up to the coder to try any degree of model tuning to see if OOB prediction can be improved or which specific features might predict bluefish best. 
+
+But for now we want to move forward evaluating how well this model predicts over space.
+
+Generally, for spatial model validation there is a small handful of different tools available - for this we'll just cover two: visual inspection of the spatial residuals and applying a Global Moran's $I$ test to the spatial residuals. 
 
 ::: callout-note
-## You gotta keep em separated
+## Me, myself, and Moran's $I$
 
-Note: we pass a vector of 1's to `sampsize` here instead of just a single value. Depending on your data, you might want to define different sample sizes per strata - which you would do in the `sampsize` vector. Generally this is used for classification problems, but here we have a repeated measures case where this can also apply.
+Global Moran's $I$ is a statistical test used to test a null hypothesis of no spatial autocorrelation. If we reject the null, we can then interpret Moran's $I$, which allows us to say we see more/less spatial clustering than would be expected. Additional information to understand this statistical test can be found on [Esri's webpage](https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-statistics/h-how-spatial-autocorrelation-moran-s-i-spatial-st.htm).
 :::
 
-To start with we'll read in the data
+The first step in this process is to generate the model residuals. To do this, we'll predict from the model to generate spatial residuals.
+
+```{r}
+Minnisconsinigan_dat <- Minnisconsinigan_dat |> 
+  mutate(
+    pred = predict( Minnisconsinigan_rf, Minnisconsinigan_dat ),
+    resid = Bluefish_index - pred
+  )
+```
+
+The first test we'll do with these residuals is a visual evaluation, and what we're looking for is spatial clustering of like colors indicating clustering of over or under prediction.
+
+```{r}
+Minnisconsinigan_dat |> 
+  ggplot(aes(x = X, y = Y, color = resid)) +
+    geom_point() +
+    scale_color_gradient2(
+      "Spatial Residual",
+      high = "red",
+      mid = "white",
+      low = "blue",
+      midpoint = 0.5
+    ) +
+    theme_minimal()
+```
+
+Nothing stands out here, but this test is very subjective. We'll also use Moran's $I$, a statistical test, here to give us a little more assurance in what we're seeing. For this test we'll use the `ape` package to calculate the global test statistic, and to do this we'll first need to calculate a matrix of inverse distance weights. This matrix will have higher values for pairs of points that are closer rather than far apart.
+
+::: callout-note
+## How far is far?
+
+Note: You will want to make sure that you are using a coordinate reference system (CRS) that is accurate for calculating distances at the scale of your data. This CRS resembles WGS84, which may not be the most ideal for calculating distance with points this close together as opposed to a UTM transformation. If your points are very distant, a spherical coordinate system can be used.
+:::
+
+```{r}
+# Get distance matrix among points in data set
+dist_mat <- as.matrix(dist(cbind(Minnisconsinigan_dat[,c("X")], Minnisconsinigan_dat[,c("Y")])))
+
+# Invert the distance matrix
+inv_dist_mat <- 1 / dist_mat
+
+# Add 0's to diagonal
+diag(inv_dist_mat) <- 0
+
+# Calculate Global Moran's I
+ape::Moran.I(Minnisconsinigan_dat$resid, inv_dist_mat)
+```
+
+Based on these results ($p$-value > 0.05) we fail to reject the null hypothesis that there is no spatial autocorrelation in the residuals and can feel good that the model is not predicting erratically across space!
+
+::: callout-note
+## Having some elbow room
+
+Note: Explicitly incorporating space, such as the coordinates in this data set, might seem tempting. However, these tree based methods will tend to split on space before considering other potential variables and we'll end up with trees largely predicting off of coordinate space instead of any predictors we'd like to consider. In general, space tends to be a proxy of other processes and predictors that influence the response that we're hoping to capture, and if we're trying to learn more about a process those predictors should likely first choice. If a model fails the spatial validation procedure, then it might be worth considering space if other covariates aren't available to improve the model performance. There is good discussion about it in this [seminar presentation](https://youtu.be/O_6kxHAIovo?si=HN1z90lFbZ8yfezy) and the questions at the end.
+:::
+
+If you have time, try doing some model tuning and see if this influences the spatial output of the model.
+
+::: callout-note
+## What if we just need some space?
+
+If your spatial model doesn't pass a residual spatial validation test, there are other tools built to help incorporate space without explicitly using lat/long values. For example, the [spatialRF](https://github.com/blasbenito/spatialRF) package, built on top of the `ranger` package, has a lot of cool additional tools that we didn't have time to get through today to help fit and evaluate the model.
+:::
