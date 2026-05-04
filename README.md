@@ -1,12 +1,15 @@
 # README for Machine Learning Methods Workshop
 
-## Workshop facilitators
+## Workshop intention and facilitators
+
+This workshop was intended for ecological or environmental scientists that are familiar to some extent with R, statistical modeling, or other related work. We attempted to introduce the fundamentals of machine learning and provide examples for some commonly used tree-based, supervised learning models. 
 
 The workshop was developed by Grant Vagle, Jeremiah Shrovnal, and Lynn Waterhouse with vital contributions from Olivia Nyffeler and Molly Tilsen.
 
 Funding for this workshop was provided by the Minnesota Environment and Natural Resources Trust Fund as recommended by the Legislative-Citizen Commission on Minnesota Resources (LCCMR).
 
 <img src="code/images/enrtf_logo.jpg" width="200" align="right"/>
+
 
 ## Workshop outline
 
