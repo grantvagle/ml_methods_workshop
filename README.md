@@ -36,6 +36,7 @@ Not familiar with GitHub? No problem, download the `.zip` file by clicking the g
 
 Comfortable with GitHub? You can `clone` or `fork` this repo to use it locally, or just download the `.zip` as above.
 
+The presentation slides are available as pdf's in the `slides` folder. The code files are available as `.qmd` (very similar to `.Rmd`) that can be rendered or used to work through the code. Alternatively, the code and outputs are available via download-able `.html` files to avoid running the code.
 
 ## Organization of this repository
 
