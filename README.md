@@ -6,7 +6,7 @@ This workshop was intended for ecological or environmental scientists that are f
 
 The workshop took place April 16, 2026 on the University of Minnesota campus, and all slides and code examples are provided here for reference.
 
-The workshop was developed by Grant Vagle, Jeremiah Shrovnal, and Lynn Waterhouse with vital contributions from Olivia Nyffeler and Molly Tilsen. **Contact Grant (vagle019@umn.edu) with any questions**.
+The workshop was developed by Grant Vagle, Jeremiah Shrovnal, and Lynn Waterhouse with vital contributions from Olivia Nyffeler and Molly Tilsen. Contact Grant (vagle019@umn.edu) with any questions.
 
 Funding for this workshop was provided by the Minnesota Environment and Natural Resources Trust Fund as recommended by the Legislative-Citizen Commission on Minnesota Resources (LCCMR).
 
