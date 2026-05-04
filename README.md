@@ -16,28 +16,13 @@ Funding for this workshop was provided by the Minnesota Environment and Natural 
 4. Boosted regression trees, model tuning, and model interpretation with SHAP values
 
 
-## Before you arrive
+## Before you start
 
 - Download and install R and RStudio: [https://posit.co/download/rstudio-desktop/](https://posit.co/download/rstudio-desktop/)
 - If you're not familiar with the `tidyverse` or code piping, take a look [here](https://bookdown.org/yih_huynh/Guide-to-R-Book/tidyverse.html). We'll be using the `tidyverse` for data manipulation a lot in the workshop.
-- Install packages if you don't already have them (all are available through CRAN via `install.packages()`):
-  - `tidyverse` (includes `dplyr`, `tidyr`, `forcats`, `ggplot2`)
-  - `Metrics`
-  - `dismo`
-  - `gbm`
-  - `caret`
-  - `rpart`
-  - `smotefamily`
-  - `fastshap`
-  - `shapviz`
-  - `parallel`
-  - `corrplot`
-  - `pdp`
-  - `interp`
-  - `here`
-  - `randomForest`
-  - `caret`
-  
+- Install packages:
+  - Use the `code/install_wkshp_packages.R` to install the packages OR
+  - Open the first script (`code/01_cart_examples.qmd`) and the packages are installed near the start of the script
 - Take a look around this repository
 
 ## How to use this repository
@@ -51,7 +36,7 @@ Comfortable with GitHub? You can `clone` or `fork` this repo to use it locally, 
 
 `slides/`
 
-  - Contains pdfs and powerpoints of all slides used in the workshop presentations.
+  - Contains pdfs of all slides used in the workshop presentations.
 
 
 `code/`
@@ -59,7 +44,8 @@ Comfortable with GitHub? You can `clone` or `fork` this repo to use it locally, 
   - `01_cart_examples.qmd` - 1st set of example code for CART models, model evaluation, and cross-validation.
   - `02_randomforest_examples.qmd` - Example code for Random Forest models, including model tuning and handling correlated predictors, and basic model interpretation.
   - `03_BRTs_examples.qmd` - Example code for Boosted Regression Tree models, including model tuning and advanced model interpretation with SHAP values.
-
+  - `extras/` - contains simulation code that created the datasets
+  - `images/` - contains images included in the code files
 
 `data/`
 
