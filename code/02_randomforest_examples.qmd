@@ -1,6 +1,8 @@
 ---
 title: "02 - Random Forest code examples"
-format: html
+format: 
+  html:
+    embed-resources: true
 editor: visual
 number-sections: true
 number-depth: 3
@@ -202,6 +204,7 @@ Try playing with `nodesize` option in the random forest call to see if you can i
 
 ::: callout-note
 ## Getting more bang for your buck (or fish)
+
 Can you think of other ways we could add predictors to this model based on only the covariates provided?
 :::
 
@@ -291,8 +294,6 @@ Now that you have a relative ordering of parameter importance, it is possible to
 
 As a word of caution, recalculating variable importance at each step of forward or backward selection could lead to severe overfitting ([Díaz-Uriarte and Alvarez de Andrés, 2006](https://link.springer.com/article/10.1186/1471-2105-7-3)).
 :::
-
-
 
 ### Partial dependence plots
 
@@ -526,7 +527,7 @@ head(penguins)
 str(penguins)
 ```
 
-For this example we'll again split out a training and test set. 
+For this example we'll again split out a training and test set.
 
 ```{r}
 nrow_train <- ceiling(0.8 * nrow(penguins)) # ceiling used to make it an integer
@@ -688,7 +689,7 @@ fipperICE2 |>
     theme_minimal()
 ```
 
-And we see that the range of the response decreases relative to a model that is fit without both flippers and averaging over a different value. 
+And we see that the range of the response decreases relative to a model that is fit without both flippers and averaging over a different value.
 
 ```{r}
 # Get ICE from pdp
@@ -828,7 +829,6 @@ Minnisconsinigan_dat |>
     theme_minimal()
 ```
 
-
 ```{r}
 ( Minnisconsinigan_rf <- randomForest::randomForest(
     Bluefish_index ~ ., # the . implies everything else in the dataset
@@ -840,11 +840,11 @@ Minnisconsinigan_dat |>
   ) )
 ```
 
-We see that this Bluefish index looks to be hard to predict with the information we have. We'll leave it up to the coder to try any degree of model tuning to see if OOB prediction can be improved or which specific features might predict bluefish best. 
+We see that this Bluefish index looks to be hard to predict with the information we have. We'll leave it up to the coder to try any degree of model tuning to see if OOB prediction can be improved or which specific features might predict bluefish best.
 
 But for now we want to move forward evaluating how well this model predicts over space.
 
-Generally, for spatial model validation there is a small handful of different tools available - for this we'll just cover two: visual inspection of the spatial residuals and applying a Global Moran's $I$ test to the spatial residuals. 
+Generally, for spatial model validation there is a small handful of different tools available - for this we'll just cover two: visual inspection of the spatial residuals and applying a Global Moran's $I$ test to the spatial residuals.
 
 ::: callout-note
 ## Me, myself, and Moran's $I$
@@ -900,7 +900,7 @@ diag(inv_dist_mat) <- 0
 ape::Moran.I(Minnisconsinigan_dat$resid, inv_dist_mat)
 ```
 
-Based on these results ($p$-value > 0.05) we fail to reject the null hypothesis that there is no spatial autocorrelation in the residuals and can feel good that the model is not predicting erratically across space!
+Based on these results ($p$-value \> 0.05) we fail to reject the null hypothesis that there is no spatial autocorrelation in the residuals and can feel good that the model is not predicting erratically across space!
 
 ::: callout-note
 ## Having some elbow room
