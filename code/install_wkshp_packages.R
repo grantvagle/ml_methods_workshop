@@ -13,13 +13,13 @@ pkgs <- c(
   "smotefamily",
   "fastshap",
   "shapviz",
-  "parallel",
   "corrplot",
   "pdp",
   "interp",
   "here",
   "randomForest",
-  "caret"
+  "ape",
+  "plotly"
 )
 
 # Identify packages not yet installed
