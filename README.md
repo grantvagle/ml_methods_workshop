@@ -6,7 +6,7 @@ The workshop was developed by Grant Vagle, Jeremiah Shrovnal, and Lynn Waterhous
 
 Funding for this workshop was provided by the Minnesota Environment and Natural Resources Trust Fund as recommended by the Legislative-Citizen Commission on Minnesota Resources (LCCMR).
 
-![](code/images/enrtf_logo.jpg){width=15% align=right}
+<img src="code/images/enrtf_logo.jpg" width="200" align="right"/>
 
 ## Workshop outline
 
