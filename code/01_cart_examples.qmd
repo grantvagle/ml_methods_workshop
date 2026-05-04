@@ -2,7 +2,7 @@
 title: "01 - CART code examples"
 format: 
   html:
-      keep-md: true
+    embed-resources: true
 editor: visual
 number-sections: true
 number-depth: 3
@@ -78,6 +78,8 @@ If you're not using an updated version of R: (need 4.5.0+), you can either updat
 # install.packages("palmerpenguins")
 # library(palmerpenguins)
 ```
+
+**Note**: some of the column names change slightly, so you might need to change them to match the code throughout.
 :::
 
 ## Read in penguins data

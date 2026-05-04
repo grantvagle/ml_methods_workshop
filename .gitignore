@@ -11,8 +11,6 @@ slides/libs/*
 # ignore the _files from qmd rendering
 code/*_files 
 
-code/*.html
-
 explo*
 
 README.html
